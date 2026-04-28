@@ -1,0 +1,76 @@
+name: Claude Code Review
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude-review:
+    if: |
+      github.event.comment.user.type != 'Bot' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@claude')
+    uses: seontechnologies/seon-gh-actions/.github/workflows/rwf-claude-code-review.yml@v2
+    with:
+      review_prompt: |
+        IMPORTANT: Skip reviewing any files in the bmad/ directory - these are BMAD-METHOD™ framework files for AI-assisted development planning and should not be reviewed for code quality.
+
+        Perform a comprehensive code review for this Pact.js contract testing utilities library with focus on:
+
+        ## TypeScript & Code Quality
+        - **Type safety and proper TypeScript usage** - Strict typing, explicit return types, modern JS features
+        - **Clean code principles and best practices** - Follow established "functional core, fixture shell" patterns
+        - **Module exports and subpath exports correctness** - Dual CommonJS/ESM support, proper package.json exports
+        - **Proper error handling and edge cases** - Comprehensive error scenarios and edge case coverage
+        - **Performance considerations** - No significant test execution overhead
+
+        ## Testing Best Practices
+        - **Adherence to testing best practices** - No hard waits, proper async handling, dynamic waiting
+        - **Test reliability and flakiness prevention** - Atomic test design, stateless execution
+        - **Contract testing patterns** - Proper Pact consumer/provider test implementation
+        - **Parallel test safety** - Tests run independently without shared state
+
+        ## Library Design & Architecture
+        - **API consistency across modules** - Uniform patterns across all utility modules
+        - **Proper fixture pattern implementation** - Dual interface support (direct function + fixture)
+        - **Documentation completeness** - Comprehensive docs with real-world examples
+        - **Breaking changes identification** - Backward compatibility with existing repositories
+        - **Separation of concerns** - Clean utility boundaries and responsibilities
+
+        ## Testing Coverage
+        - **Test accompaniment** - When adding new source code, check for tests being updated or added; hopefully unit and/or e2e - preferably both
+        - **Coverage adequacy** - Sufficient test coverage for new utilities
+        - **Test quality** - Edge cases, error scenarios, integration patterns
+        - **Sample-app validation** - End-to-end testing with real applications
+
+        ## Performance & Security
+        - **Identify potential performance issues** - Memory leaks, inefficient patterns, test execution overhead
+        - **Check for security vulnerabilities** - Hardcoded secrets, unsafe dependencies, exposure risks
+        - **Validate input sanitization in utilities** - Proper validation, safe data handling, injection prevention
+        - **Review contract/mock safety** - Pact file security, mock data handling, credential exposure
+        - **Dependencies** - Minimal external dependencies, appropriate and secure versions
+
+        ## Review Guidelines
+        - Use the repository's CLAUDE.md for guidance on project-specific conventions
+        - Follow the testing best practices defined in the global CLAUDE.md
+        - Provide specific, actionable feedback with code examples where helpful
+        - Prioritize issues by severity: **Critical** → **High** → **Medium** → **Low**
+        - Be constructive and focus on maintainability and reliability
+
+        ## Specific Pact.js-Utils Checks
+        - Validate consumer/provider contract testing patterns
+        - Check Pact broker integration and configuration
+        - Ensure utilities integrate cleanly with test runners (Jest, Vitest)
+        - Verify subpath exports are correctly configured
+        - Review sample-app integration and real-world usage patterns
+
+      main_branch: 'main'
+      skip_draft_prs: true
+      skip_backports: true
+      skip_epic_to_main: true
+    secrets:
+      anthropic_api_key: ${{ secrets.CLAUDE_REVIEW_TOKEN }}

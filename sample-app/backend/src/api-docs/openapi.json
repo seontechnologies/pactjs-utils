@@ -1,0 +1,678 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Movies API",
+    "version": "11.0.0",
+    "description": "API for managing movies"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://api.myapp.com",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "CreateMovieRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1,
+            "description": "Movie ID "
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Inception",
+            "description": "Movie name"
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1900,
+            "maximum": 2027,
+            "example": 2010,
+            "description": "Release year"
+          },
+          "rating": {
+            "type": "number",
+            "example": 7.5,
+            "description": "Rating"
+          },
+          "director": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Christopher Nolan",
+            "description": "Director"
+          }
+        },
+        "required": ["name", "year", "rating", "director"]
+      },
+      "CreateMovieResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 200,
+            "description": "Response status code"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "example": 1,
+                "description": "Movie ID"
+              },
+              "name": {
+                "type": "string",
+                "example": "Inception",
+                "description": "Movie name"
+              },
+              "year": {
+                "type": "integer",
+                "example": 2010,
+                "description": "Release year"
+              },
+              "rating": {
+                "type": "number",
+                "example": 7.5,
+                "description": "Rating"
+              },
+              "director": {
+                "type": "string",
+                "example": "Christopher Nolan",
+                "description": "Director"
+              }
+            },
+            "required": ["id", "name", "year", "rating", "director"]
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message, if any"
+          }
+        },
+        "required": ["status", "data"]
+      },
+      "GetMovieResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 200,
+            "description": "Response status code"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "number",
+                    "example": 1,
+                    "description": "Movie ID"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Inception",
+                    "description": "Movie name"
+                  },
+                  "year": {
+                    "type": "number",
+                    "example": 2010,
+                    "description": "Release year"
+                  },
+                  "rating": {
+                    "type": "number",
+                    "example": 7.5,
+                    "description": "Rating"
+                  },
+                  "director": {
+                    "type": "string",
+                    "example": "Christopher Nolan",
+                    "description": "Director"
+                  }
+                },
+                "required": ["id", "name", "year", "rating", "director"]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number",
+                      "example": 1,
+                      "description": "Movie ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Inception",
+                      "description": "Movie name"
+                    },
+                    "year": {
+                      "type": "number",
+                      "example": 2010,
+                      "description": "Release year"
+                    },
+                    "rating": {
+                      "type": "number",
+                      "example": 7.5,
+                      "description": "Rating"
+                    },
+                    "director": {
+                      "type": "string",
+                      "example": "Christopher Nolan",
+                      "description": "Director"
+                    }
+                  },
+                  "required": ["id", "name", "year", "rating", "director"]
+                },
+                "description": "List of movies or an empty array if no movies exist",
+                "example": []
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": ["string", "null"],
+            "description": "Error message if an error occurred, otherwise null",
+            "example": null
+          }
+        },
+        "required": ["status", "data"]
+      },
+      "MovieNotFound": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 404,
+            "description": "Response status code"
+          },
+          "error": {
+            "type": "string",
+            "example": "Movie not found",
+            "description": "Error message"
+          }
+        },
+        "required": ["status", "error"]
+      },
+      "DeleteMovieMessage": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 200,
+            "description": "Response status code"
+          },
+          "message": {
+            "type": "string",
+            "example": "Movie {id} has been deleted",
+            "description": "Success message for the deleted movie"
+          }
+        },
+        "required": ["status", "message"]
+      },
+      "ConflictMovieResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 409,
+            "description": "Conflict status code"
+          },
+          "error": {
+            "type": "string",
+            "example": "Movie already exists",
+            "description": "Error message"
+          }
+        },
+        "required": ["status", "error"]
+      },
+      "UpdateMovieRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 1,
+            "description": "Movie ID"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Inception",
+            "description": "Movie name"
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1900,
+            "maximum": 2027,
+            "example": 2010,
+            "description": "Release year"
+          },
+          "rating": {
+            "type": "number",
+            "example": 7.5,
+            "description": "Rating"
+          },
+          "director": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Christopher Nolan",
+            "description": "Director"
+          }
+        }
+      },
+      "UpdateMovieResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 200,
+            "description": "Response status code"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number",
+                "example": 1,
+                "description": "Movie ID"
+              },
+              "name": {
+                "type": "string",
+                "example": "Inception",
+                "description": "Movie name"
+              },
+              "year": {
+                "type": "number",
+                "example": 2010,
+                "description": "Release year"
+              },
+              "rating": {
+                "type": "number",
+                "example": 7.5,
+                "description": "Rating"
+              },
+              "director": {
+                "type": "string",
+                "example": "Christopher Nolan",
+                "description": "Director"
+              }
+            },
+            "required": ["id", "name", "year", "rating", "director"],
+            "description": "Updated movie data"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message, if any"
+          }
+        },
+        "required": ["status", "data"]
+      },
+      "UpdatedMovieResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 200,
+            "description": "Response status code"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number",
+                "example": 1,
+                "description": "Movie ID"
+              },
+              "name": {
+                "type": "string",
+                "example": "Inception",
+                "description": "Movie name"
+              },
+              "year": {
+                "type": "number",
+                "example": 2010,
+                "description": "Release year"
+              },
+              "rating": {
+                "type": "number",
+                "example": 7.5,
+                "description": "Rating"
+              },
+              "director": {
+                "type": "string",
+                "example": "Christopher Nolan",
+                "description": "Director"
+              }
+            },
+            "required": ["id", "name", "year", "rating", "director"],
+            "description": "Updated movie data"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message, if any"
+          }
+        },
+        "required": ["status", "data"]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Server is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Server is running"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/movies": {
+      "get": {
+        "summary": "Get all movies or filter by name",
+        "description": "Retrieve a list of all movies. Optionally, provide a query parameter \"name\" to filter by a specific movie name.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Movie name to search for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of movies or a specific movie if the \"name\" query parameter is provided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMovieResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Movie not found if the name is provided and does not match any movie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 404,
+                      "description": "Response status code"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Movie not found",
+                      "description": "Error message"
+                    }
+                  },
+                  "required": ["status", "error"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new movie",
+        "description": "Create a new movie in the system",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMovieRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Movie created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateMovieResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body or validation error"
+          },
+          "409": {
+            "description": "Movie already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 409,
+                      "description": "Conflict status code"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Movie already exists",
+                      "description": "Error message"
+                    }
+                  },
+                  "required": ["status", "error"]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error occurred"
+          }
+        }
+      }
+    },
+    "/movies/{id}": {
+      "get": {
+        "summary": "Get a movie by ID",
+        "description": "Retrieve a single movie by its ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Movie ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movie found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMovieResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Movie not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 404,
+                      "description": "Response status code"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Movie not found",
+                      "description": "Error message"
+                    }
+                  },
+                  "required": ["status", "error"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a movie by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Movie ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movie {id} has been deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 200,
+                      "description": "Response status code"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Movie {id} has been deleted",
+                      "description": "Success message for the deleted movie"
+                    }
+                  },
+                  "required": ["status", "message"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Movie not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 404,
+                      "description": "Response status code"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Movie not found",
+                      "description": "Error message"
+                    }
+                  },
+                  "required": ["status", "error"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a movie by ID",
+        "description": "Update the details of an existing movie by providing a movie ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Movie ID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMovieRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Movie updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatedMovieResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Movie not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "example": 404,
+                      "description": "Response status code"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Movie not found",
+                      "description": "Error message"
+                    }
+                  },
+                  "required": ["status", "error"]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

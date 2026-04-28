@@ -1,0 +1,124 @@
+@baseUrl = http://localhost:3001
+
+###
+# @name generateToken
+# Identity-based authentication with user information
+POST {{baseUrl}}/auth/identity-token
+Content-Type: application/json
+
+{
+  "username": "test-user",
+  "password": "password123",
+  "userIdentifier": "admin"
+}
+
+###
+# @name validateAuthWithToken
+# Test the authentication validation endpoint with token
+GET {{baseUrl}}/auth/validate
+Cookie: app-jwt={{token}}
+
+###
+# @name renewToken
+# This requires a valid refresh cookie to be present in your browser
+POST {{baseUrl}}/auth/renew
+Content-Type: application/json
+
+###
+# Token for authentication
+@token = {{generateToken.response.body.token}}
+
+###
+# @name heartbeat
+GET {{baseUrl}}
+
+###
+# @name addMovie
+POST {{baseUrl}}/movies
+Content-Type: application/json
+Cookie: app-jwt={{token}}
+
+{
+    "name": "Inception",
+    "year": 2010,
+    "rating": 7.5,
+    "director": "Christopher Nolan"
+}
+
+###
+@movieId = {{addMovie.response.body.data.id}}
+@movieName = {{addMovie.response.body.data.name}}
+
+###
+# @name getAllMovies
+GET {{baseUrl}}/movies
+Cookie: app-jwt={{token}}
+
+###
+# @name getMovieById
+GET {{baseUrl}}/movies/{{movieId}}
+Cookie: app-jwt={{token}}
+
+###
+# @name getMovieByName
+GET {{baseUrl}}/movies?name={{movieName}}
+Cookie: app-jwt={{token}}
+
+###
+# @name addDuplicateMovie
+POST {{baseUrl}}/movies/
+Content-Type: application/json
+Cookie: app-jwt={{token}}
+
+{
+    "name": "Inception",
+    "year": 2010,
+    "rating": 7.5,
+    "director": "Christopher Nolan"
+}
+
+###
+# @name addMovieInvalidYear
+POST {{baseUrl}}/movies
+Content-Type: application/json
+Cookie: app-jwt={{token}}
+
+{
+    "name": "Invalid Year Movie",
+    "year": 1800,
+    "rating": 7.5,
+    "director": "Christopher Nolan"
+}
+
+###
+# @name updateMovie
+PUT {{baseUrl}}/movies/{{movieId}}
+Content-Type: application/json
+Cookie: app-jwt={{token}}
+
+{
+    "name": "Inception Updated",
+    "year": 2015,
+    "rating": 8.0,
+    "director": "Steven Spielberg"
+}
+
+###
+# @name deleteMovie
+DELETE {{baseUrl}}/movies/{{movieId}}
+Cookie: app-jwt={{token}}
+
+###
+# @name getNonExistentMovie
+GET {{baseUrl}}/movies/999
+Cookie: app-jwt={{token}}
+Authorization: {{token}}
+
+
+###
+# @name deleteNonExistentMovie
+DELETE {{baseUrl}}/movies/999
+Cookie: app-jwt={{token}}
+Authorization: {{token}}
+
+

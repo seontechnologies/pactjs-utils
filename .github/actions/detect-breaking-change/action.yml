@@ -1,0 +1,49 @@
+name: 'Detect Pact Breaking Change'
+description: 'Reads the PR template checkbox to determine if this change is a Pact breaking change. Sets PACT_BREAKING_CHANGE env var.'
+
+outputs:
+  is_breaking_change:
+    description: 'Whether the change is a breaking change (true/false)'
+    value: ${{ steps.result.outputs.is_breaking_change }}
+
+runs:
+  using: 'composite'
+  steps:
+    # PR event path: read checkbox directly from current PR body.
+    - name: Set PACT_BREAKING_CHANGE from PR description (PR only)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prBody = context.payload.pull_request.body || '';
+          if (prBody.includes('[x] Pact breaking change')) {
+            core.exportVariable('PACT_BREAKING_CHANGE', 'true');
+            console.log('PACT_BREAKING_CHANGE set to true based on PR description checkbox.');
+          } else {
+            core.exportVariable('PACT_BREAKING_CHANGE', 'false');
+            console.log('PACT_BREAKING_CHANGE remains false.');
+          }
+
+    # Push-to-main path: resolve the merged PR and read the same checkbox.
+    - name: Set PACT_BREAKING_CHANGE from merged PR (push to main)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+          });
+          const merged = prs.find(pr => pr.merged_at);
+          if (merged && (merged.body || '').includes('[x] Pact breaking change')) {
+            core.exportVariable('PACT_BREAKING_CHANGE', 'true');
+            console.log('PACT_BREAKING_CHANGE set to true from merged PR.');
+          } else {
+            core.exportVariable('PACT_BREAKING_CHANGE', 'false');
+          }
+
+    - name: Export result
+      id: result
+      shell: bash
+      run: echo "is_breaking_change=${PACT_BREAKING_CHANGE:-false}" >> "$GITHUB_OUTPUT"

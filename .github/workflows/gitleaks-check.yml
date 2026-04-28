@@ -1,0 +1,17 @@
+name: Security Scan (Gitleaks)
+
+on:
+  pull_request:
+    branches: ['main']
+  push:
+    branches: ['main']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  call-gitleaks-workflow:
+    uses: seontechnologies/internal-tools-security/.github/workflows/gitleaks-actions.yml@master
+    secrets:
+      slackwebhook: ${{ secrets.CREDENTIAL_LEAK_SLACK_WEBHOOK }}

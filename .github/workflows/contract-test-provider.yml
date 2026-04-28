@@ -1,0 +1,65 @@
+# Provider HTTP Contract Verification (CDCT)
+#
+# This workflow runs in the PROVIDER repo.
+# It verifies the provider against consumer HTTP pacts from the broker.
+#
+# Copy this to your provider repo and customize the npm scripts.
+
+name: Provider HTTP contract verification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+  GITHUB_SHA: ${{ github.sha }}
+  GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  provider-http-verification:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Detect Pact breaking change
+        uses: ./.github/actions/detect-breaking-change
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma types
+        run: cd sample-app/backend && npx prisma generate
+
+      - name: Run provider HTTP contract verification
+        run: npm run test:pact:provider:remote:contract
+        env:
+          PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
+
+      # Check deployment safety
+      # NOTE: First-time bootstrap — if no verified contract exists on the broker yet,
+      # gate this to main only: if: github.ref == 'refs/heads/main' && env.PACT_BREAKING_CHANGE != 'true'
+      # Once the first contract is published + verified on main, remove the main-only condition.
+      - name: Can I deploy provider?
+        if: env.PACT_BREAKING_CHANGE != 'true'
+        run: npm run can:i:deploy:provider
+
+      - name: Record provider deployment (main only)
+        if: github.ref == 'refs/heads/main'
+        run: npm run record:provider:deployment --env=dev

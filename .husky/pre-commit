@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+# Auto-fix staged files and restage them.
+npx --no-install lint-staged
+
+# Run docs checks only when docs-related files are staged.
+if command -v rg >/dev/null 2>&1; then
+  if git diff --cached --name-only | rg -q '^(docs/|README\.md$|CONTRIBUTING\.md$|AGENTS\.md$|TECH-COMM-PROMPT\.md$)'; then
+    npm run docs:lint
+  fi
+else
+  if git diff --cached --name-only | grep -Eq '^(docs/|README\.md$|CONTRIBUTING\.md$|AGENTS\.md$|TECH-COMM-PROMPT\.md$)'; then
+    npm run docs:lint
+  fi
+fi

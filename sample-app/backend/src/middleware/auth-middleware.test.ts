@@ -1,0 +1,106 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Request, Response, NextFunction } from 'express'
+import { authMiddleware } from './auth-middleware'
+
+describe('authMiddleware', () => {
+  let mockRequest: Partial<Request>
+  // Use a more specific type that includes locals to prevent TypeScript errors
+  type MockResponse = Partial<Response> & {
+    locals: {
+      user?: {
+        identity?: {
+          userId: string
+          username: string
+          userIdentifier: string
+        }
+      }
+    }
+  }
+  let mockResponse: MockResponse
+  let nextFunction: NextFunction
+
+  beforeEach(() => {
+    mockRequest = {
+      headers: {},
+      cookies: {}
+    }
+    mockResponse = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      clearCookie: vi.fn().mockReturnThis(),
+      locals: {} // Initialize with empty object
+    }
+    nextFunction = vi.fn()
+  })
+
+  it('should call next() exactly once for valid token', () => {
+    const validDate = new Date()
+    // Use the new cookie name and token format with Bearer prefix
+    mockRequest.cookies = { 'app-jwt': `Bearer ${validDate.toISOString()}` }
+    authMiddleware(
+      mockRequest as Request,
+      mockResponse as Response,
+      nextFunction
+    )
+
+    expect(nextFunction).toHaveBeenCalledTimes(1)
+    expect(mockResponse.status).not.toHaveBeenCalled()
+    expect(mockResponse.json).not.toHaveBeenCalled()
+  })
+
+  it('should return 401 when no token is provided', () => {
+    authMiddleware(
+      mockRequest as Request,
+      mockResponse as Response,
+      nextFunction
+    )
+
+    expect(mockResponse.status).toHaveBeenCalledWith(401)
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      error: 'Unauthorized; no authentication token found.',
+      status: 401
+    })
+    expect(nextFunction).not.toHaveBeenCalled()
+  })
+
+  it('should return 401 for expired token', () => {
+    const expiredDate = new Date(Date.now() - 3601 * 1000) // 1 hour and 1 second ago
+    mockRequest.cookies = {
+      'app-jwt': `Bearer ${expiredDate.toISOString()}`
+    }
+    authMiddleware(
+      mockRequest as Request,
+      mockResponse as Response,
+      nextFunction
+    )
+
+    expect(mockResponse.status).toHaveBeenCalledWith(401)
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      error: 'Unauthorized; not valid timestamp.',
+      status: 401
+    })
+    expect(mockResponse.clearCookie).toHaveBeenCalledWith('app-jwt')
+    expect(nextFunction).not.toHaveBeenCalled()
+  })
+
+  it('should attach identity with userIdentifier to the response locals', () => {
+    const validDate = new Date()
+    const identity = {
+      userId: 'user_test',
+      username: 'test',
+      userIdentifier: 'admin'
+    }
+    // Token with identity information
+    mockRequest.cookies = {
+      'app-jwt': `Bearer ${validDate.toISOString()}:${JSON.stringify(identity)}`
+    }
+    authMiddleware(
+      mockRequest as Request,
+      mockResponse as Response,
+      nextFunction
+    )
+
+    expect(nextFunction).toHaveBeenCalledTimes(1)
+    expect(mockResponse.locals.user).toEqual({ identity })
+  })
+})

@@ -1,0 +1,100 @@
+# Provider Verification via PactFlow Webhook
+#
+# This workflow runs in the PROVIDER repo.
+# PactFlow fires a webhook when a consumer publishes a new pact,
+# triggering this workflow via GitHub repository_dispatch.
+#
+# Setup in PactFlow:
+#   1. Go to Settings > Webhooks
+#   2. Create webhook with event: "contract_requiring_verification_published"
+#   3. Set URL: https://api.github.com/repos/{owner}/{repo}/dispatches
+#   4. Set headers: Authorization: token <GITHUB_PAT>
+#   5. Set body: { "event_type": "contract_requiring_verification_published",
+#                  "client_payload": { "pact_url": "${pactbroker.pactUrl}",
+#                                      "sha": "${pactbroker.providerVersionNumber}",
+#                                      "branch": "${pactbroker.providerVersionBranch}" } }
+#
+# Copy this to your provider repo.
+
+name: Pact webhook provider verification
+
+on:
+  repository_dispatch:
+    types:
+      - contract_requiring_verification_published
+
+env:
+  PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+  PACT_PAYLOAD_URL: ${{ github.event.client_payload.pact_url }}
+  GITHUB_SHA: ${{ github.event.client_payload.sha }}
+  GITHUB_BRANCH: ${{ github.event.client_payload.branch }}
+
+jobs:
+  provider-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Extract consumer branch from Pact Broker to detect breaking changes
+      - name: Extract consumer branch and detect breaking change
+        id: pact-info
+        env:
+          PACT_URL: ${{ github.event.client_payload.pact_url }}
+          BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        run: |
+          # Fetch the pact to get consumer version link
+          PACT_JSON=$(curl -s -H "Authorization: Bearer $BROKER_TOKEN" "$PACT_URL")
+          CONSUMER_VERSION_URL=$(echo "$PACT_JSON" | jq -r '._links."pb:consumer-version".href // empty')
+
+          if [ -n "$CONSUMER_VERSION_URL" ]; then
+            VERSION_JSON=$(curl -s -H "Authorization: Bearer $BROKER_TOKEN" "$CONSUMER_VERSION_URL")
+            CONSUMER_BRANCH=$(echo "$VERSION_JSON" | jq -r '._embedded.branchVersions[0].name // "main"')
+          else
+            CONSUMER_BRANCH="main"
+          fi
+
+          echo "consumer_branch=$CONSUMER_BRANCH" >> "$GITHUB_OUTPUT"
+
+          # If consumer branch contains "breaking", set PACT_BREAKING_CHANGE
+          if echo "$CONSUMER_BRANCH" | grep -iq "breaking" && [ "$CONSUMER_BRANCH" != "main" ]; then
+            echo "PACT_BREAKING_CHANGE=true" >> "$GITHUB_ENV"
+          else
+            echo "PACT_BREAKING_CHANGE=false" >> "$GITHUB_ENV"
+          fi
+
+      # Try to checkout matching provider branch, fall back to main
+      - name: Checkout matching branch
+        env:
+          CONSUMER_BRANCH: ${{ steps.pact-info.outputs.consumer_branch }}
+        run: |
+          if git ls-remote --heads origin "$CONSUMER_BRANCH" | grep -q "$CONSUMER_BRANCH"; then
+            echo "Checking out matching provider branch: $CONSUMER_BRANCH"
+            git checkout "$CONSUMER_BRANCH"
+          else
+            echo "No matching branch '$CONSUMER_BRANCH', using main"
+            git checkout main
+          fi
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma types
+        run: cd sample-app/backend && npx prisma generate
+
+      - name: Run provider HTTP contract verification
+        run: npm run test:pact:provider:remote:contract
+        env:
+          PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
+
+      - name: Run provider message queue verification
+        run: npm run test:pact:provider:remote:message
+        env:
+          PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}

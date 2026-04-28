@@ -1,0 +1,77 @@
+# Consumer Contract Testing (CDCT)
+#
+# This workflow runs in the CONSUMER repo.
+# It generates pact files, publishes them to the broker,
+# then waits for provider verification before checking can-i-deploy.
+#
+# Copy this to your consumer repo and customize the npm scripts.
+
+name: Consumer contract tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+  GITHUB_SHA: ${{ github.sha }}
+  GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  consumer-contract-test:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Detect Pact breaking change
+        uses: ./.github/actions/detect-breaking-change
+
+      - name: Install dependencies
+        run: npm ci
+
+      # (1) Generate pact files — runs the consumer tests 3x and verifies
+      # every generated pact is byte-stable across runs. Fails the build if
+      # any pact file drifts (interaction collisions, fileParallelism races,
+      # shared mutable state). Prevents the cryptic broker error
+      # "Cannot change the content of the pact for <consumer> version <sha>"
+      # on re-runs.
+      # Same command locally: `npm run test:pact:consumer`.
+      # For fast single-pass iteration during TDD: `npm run test:pact:consumer:run`.
+      # Requires jq (preinstalled on ubuntu-latest).
+      - name: Run consumer contract tests
+        run: npm run test:pact:consumer
+
+      # (2) Publish pacts to broker
+      - name: Publish pacts to PactFlow
+        run: npm run publish:pact
+
+      # After publish, PactFlow fires a webhook that triggers
+      # the provider's contract-test-provider.yml workflow.
+      # can-i-deploy retries while waiting for provider verification.
+
+      # (4) Check deployment safety
+      # NOTE: First-time bootstrap — if no verified contract exists on the broker yet,
+      # gate this to main only: if: github.ref == 'refs/heads/main' && env.PACT_BREAKING_CHANGE != 'true'
+      # Once the first contract is published + verified on main, remove the main-only condition.
+      - name: Can I deploy consumer?
+        if: env.PACT_BREAKING_CHANGE != 'true'
+        run: npm run can:i:deploy:consumer
+
+      # (5) Record deployment (main only)
+      - name: Record consumer deployment (main only)
+        if: github.ref == 'refs/heads/main'
+        run: npm run record:consumer:deployment --env=dev

@@ -1,0 +1,38 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+node_modules/
+/node_modules
+
+# Build outputs
+dist/
+/dist
+/build
+/coverage
+
+# Environment and config
+.env
+.vscode
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test artifacts
+/test-results/
+pacts/
+provider-verification-results.txt
+/blob-report/
+**/__screenshots__/
+downloads/
+
+# VitePress
+docs/.vitepress/cache
+docs/.vitepress/dist
+
+# Project specific
+!sample-app/*/.env
+sample-app/backend/test-events/movie-events.log
+sample-app/backend/prisma/dev.db
+sample-app/backend/prisma/dev.db-journal

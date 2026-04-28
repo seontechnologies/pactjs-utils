@@ -1,0 +1,52 @@
+# Publish Provider OpenAPI Contract (BDCT - Bi-Directional)
+#
+# This workflow runs in the PROVIDER repo.
+# It publishes the provider's OpenAPI spec to PactFlow,
+# which cross-validates it against consumer pacts.
+#
+# No local equivalent — BDCT requires PactFlow for cross-validation.
+#
+# Copy this to your provider repo and customize the npm scripts.
+
+name: Publish provider OpenAPI contract (BDCT)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+  GITHUB_SHA: ${{ github.sha }}
+  GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  publish-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Prisma (schema + types)
+        run: cd sample-app/backend && npx prisma db push --force-reset && npx prisma generate
+
+      # Generates OAS from Zod schemas, runs provider tests,
+      # publishes OAS + verification results to PactFlow
+      - name: Publish provider contract (OAS) to PactFlow
+        run: npm run publish:provider:contract
+
+      - name: Can I deploy provider?
+        run: npm run can:i:deploy:provider
+
+      - name: Record provider deployment (main only)
+        if: github.ref == 'refs/heads/main'
+        run: npm run record:provider:deployment --env=dev

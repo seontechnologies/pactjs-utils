@@ -1,0 +1,49 @@
+# Local Contract Testing (no broker)
+#
+# Runs both consumer and provider contract tests locally
+# without a Pact Broker. Consumer generates pact files,
+# provider verifies directly against local files.
+#
+# This mirrors the local development flow: npm run test:pact:local
+# Useful for CI validation that contracts are compatible
+# without requiring broker credentials.
+
+name: Local contract tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-contract-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma types
+        run: cd sample-app/backend && npx prisma generate
+
+      # (1) Consumer generates pact files into pacts/
+      - name: Run consumer contract tests
+        run: npm run test:pact:consumer
+
+      # (2a) Provider verifies HTTP/CDCT contracts against local pact files
+      - name: Run provider CDCT verification (local)
+        run: npm run test:pact:provider:local:contract
+
+      # (2b) Provider verifies message contracts in the same pipeline
+      # (typically skipped unless message pacts are available via broker config)
+      - name: Run provider message queue verification (local)
+        run: npm run test:pact:provider:local:message

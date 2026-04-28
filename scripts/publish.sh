@@ -1,0 +1,186 @@
+#!/bin/bash
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check if on main or master branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
+  echo -e "${YELLOW}Warning: You are not on the main or master branch.${NC}"
+  read -p "Continue anyway? (y/N) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${RED}Aborting.${NC}"
+    exit 1
+  fi
+fi
+
+# Ensure working directory is clean
+if [ -n "$(git status --porcelain)" ]; then
+  echo -e "${RED}Error: Working directory is not clean. Commit or stash changes first.${NC}"
+  exit 1
+fi
+
+# Check for required .npmrc configuration
+if [ ! -f .npmrc ]; then
+  echo -e "${RED}Error: Missing .npmrc file.${NC}"
+  exit 1
+fi
+
+# feat/open-source: uncomment NPM_TOKEN check when open-sourcing for dual-registry publish
+# # Check if NPM_TOKEN is set (required for npmjs.org)
+# if [ -z "$NPM_TOKEN" ]; then
+#   echo -e "${RED}Error: NPM_TOKEN environment variable is not set.${NC}"
+#   echo -e "Please set it with: export NPM_TOKEN=your_npm_token"
+#   echo -e "Get your npm token from: https://www.npmjs.com/settings/~/tokens"
+#   exit 1
+# fi
+
+# Check if GITHUB_TOKEN is set (required for GitHub Packages)
+if [ -z "$GITHUB_TOKEN" ]; then
+  echo -e "${RED}Error: GITHUB_TOKEN environment variable is not set.${NC}"
+  echo -e "Please set it with: export GITHUB_TOKEN=your_github_token"
+  echo -e "Create a Personal Access Token at: https://github.com/settings/tokens"
+  echo -e "Required scopes: write:packages, read:packages"
+  exit 1
+fi
+
+echo -e "${GREEN}GITHUB_TOKEN is set. Will publish to GitHub Packages (internal).${NC}"
+
+# Read current version
+CURRENT_VERSION=$(npm pkg get version | tr -d '"')
+echo -e "Current version: ${GREEN}$CURRENT_VERSION${NC}"
+
+# Prompt for version type or specific version
+echo "Select version type:"
+echo "1) Patch (x.x.X)"
+echo "2) Minor (x.X.0)"
+echo "3) Major (X.0.0)"
+echo "4) Custom version"
+read -p "Enter choice (1-4): " VERSION_CHOICE
+
+case $VERSION_CHOICE in
+  1) VERSION_TYPE="patch" ;;
+  2) VERSION_TYPE="minor" ;;
+  3) VERSION_TYPE="major" ;;
+  4)
+    read -p "Enter custom version (without v prefix): " CUSTOM_VERSION
+    
+    # Validate that custom version is not empty
+    if [[ -z "$CUSTOM_VERSION" ]]; then
+      echo -e "${RED}Error: Custom version cannot be empty${NC}"
+      exit 1
+    fi
+    
+    VERSION_TYPE=$CUSTOM_VERSION
+    ;;
+  *)
+    echo -e "${RED}Invalid choice. Exiting.${NC}"
+    exit 1
+    ;;
+esac
+
+# Build the package
+echo -e "${YELLOW}Building package...${NC}"
+npm run build
+
+# Bump version
+if [[ "$VERSION_CHOICE" == "4" ]]; then
+  echo -e "Setting version to: ${GREEN}$VERSION_TYPE${NC}"
+  npm version "$VERSION_TYPE" --no-git-tag-version
+else
+  echo -e "Bumping ${GREEN}$VERSION_TYPE${NC} version..."
+  npm version $VERSION_TYPE --no-git-tag-version
+fi
+
+NEW_VERSION=$(npm pkg get version | tr -d '"')
+
+# Create temporary .npmrc files for publishing
+NPMRC_GITHUB=$(mktemp) || { echo -e "${RED}Failed to create temporary file${NC}"; exit 1; }
+trap "rm -f $NPMRC_GITHUB" EXIT
+
+# feat/open-source: uncomment npmjs.org publish block below when open-sourcing
+# NPMRC_NPM=$(mktemp) || { echo -e "${RED}Failed to create temporary file${NC}"; exit 1; }
+# trap "rm -f $NPMRC_NPM $NPMRC_GITHUB" EXIT
+#
+# # Configure npmjs.org registry
+# echo "@seontechnologies:registry=https://registry.npmjs.org" > "$NPMRC_NPM"
+# echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPMRC_NPM"
+#
+# # Publish to npmjs.org (public registry)
+# echo -e "${YELLOW}Publishing version ${GREEN}$NEW_VERSION${NC} to npmjs.org...${NC}"
+# if npm publish --userconfig "$NPMRC_NPM"; then
+#   echo -e "${GREEN}Successfully published to npmjs.org${NC}"
+# else
+#   echo -e "${RED}Failed to publish to npmjs.org${NC}"
+#   exit 1
+# fi
+
+# Configure GitHub Packages registry
+echo "@seontechnologies:registry=https://npm.pkg.github.com" > "$NPMRC_GITHUB"
+echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> "$NPMRC_GITHUB"
+
+# Publish to GitHub Packages (internal registry)
+echo -e "${YELLOW}Publishing version ${GREEN}$NEW_VERSION${NC} to GitHub Packages...${NC}"
+if npm publish --userconfig "$NPMRC_GITHUB"; then
+  echo -e "${GREEN}Successfully published to GitHub Packages${NC}"
+else
+  echo -e "${RED}Failed to publish to GitHub Packages${NC}"
+  exit 1
+fi
+
+echo -e "${GREEN}Successfully published version $NEW_VERSION to GitHub Packages!${NC}"
+
+# Create a version commit and tag
+git add package.json package-lock.json
+git commit -m "chore: bump version to $NEW_VERSION"
+git tag -a "v$NEW_VERSION" -m "Release $NEW_VERSION"
+
+echo -e "${YELLOW}How would you like to handle the repository updates?${NC}"
+echo "1) Push directly to $CURRENT_BRANCH branch (if you have permission)"
+echo "2) Create a release branch and PR (recommended for protected branches)"
+read -p "Enter choice (1-2): " PUSH_CHOICE
+
+case $PUSH_CHOICE in
+  1)
+    echo -e "${YELLOW}Pushing directly to $CURRENT_BRANCH...${NC}"
+    git push origin "$CURRENT_BRANCH"
+    git push origin "v$NEW_VERSION"
+    ;;
+  2)
+    # Create and push a release branch
+    RELEASE_BRANCH="release/v$NEW_VERSION"
+    echo -e "${YELLOW}Creating branch $RELEASE_BRANCH and PR...${NC}"
+    git checkout -b "$RELEASE_BRANCH"
+    git push origin "$RELEASE_BRANCH"
+    git push origin "v$NEW_VERSION"
+    
+    # Check if GitHub CLI is installed for PR creation
+    if command -v gh &> /dev/null; then
+      echo -e "${YELLOW}Creating PR with GitHub CLI...${NC}"
+      gh pr create \
+        --base "$CURRENT_BRANCH" \
+        --head "$RELEASE_BRANCH" \
+        --title "chore: release v$NEW_VERSION" \
+        --body "This PR updates the package version to $NEW_VERSION.
+
+This was manually generated by the publish script."
+      echo -e "${GREEN}PR created successfully!${NC}"
+    else
+      echo -e "${YELLOW}GitHub CLI not installed. Please create a PR manually:${NC}"
+      echo -e "- Go to: https://github.com/seontechnologies/pactjs-utils/pull/new/$RELEASE_BRANCH"
+      echo -e "- Set base: $CURRENT_BRANCH"
+      echo -e "- Set title: chore: release v$NEW_VERSION"
+    fi
+    ;;
+  *)
+    echo -e "${RED}Invalid choice. Exiting.${NC}"
+    exit 1
+    ;;
+esac
+
+echo -e "${GREEN}Successfully completed the release process!${NC}"
