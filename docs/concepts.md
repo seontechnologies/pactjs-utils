@@ -519,78 +519,15 @@ The step-by-step workflow:
 
 For the implementation workflow, see [buildVerifierOptions](./provider-verifier/build-verifier-options.md#breaking-changes-flow).
 
-### enablePending — bridge, not bypass
+### enablePending
 
-`enablePending: true` tells the Pact Broker: "if this pact is currently in
-pending state for me, don't fail my build when verification fails." PactFlow
-marks a pact as pending for a provider when that provider has not yet
-successfully verified it. Once the provider verifies it successfully, the pact
-loses its pending status and subsequent failures fail the build normally.
-Note: a content change to a previously-verified interaction can re-introduce
-pending status depending on your PactFlow configuration — pending is per
-provider+content, not a one-shot state.
+`enablePending: true` tells the broker: don't fail the provider build when verifying a pact it has never successfully verified before. Once verified, the pact loses pending status and failures fail normally.
 
-This is a legitimate short-lived bridge for one specific scenario: a consumer
-publishes new interactions on a feature branch before the provider is ready to
-support them, and both teams are working in parallel toward the same release.
+Use it as a short-lived bridge when a consumer publishes new interactions before the provider is ready. **Never set it permanently in a workflow `env` block** — it silently bypasses verification for every pending interaction from every consumer.
 
-**The trap: setting it permanently.**
+If you genuinely need it, scope it via a PR checkbox the same way `PACT_BREAKING_CHANGE` is handled — explicit, visible, temporary.
 
-The most common mistake is baking `enablePending: true` permanently into a
-CI workflow env block to unblock a single PR:
-
-```yaml
-# ❌ Don't do this
-env:
-  PACT_ENABLE_PENDING: 'true'   # silently disables the safety net for all future contracts
-```
-
-This permanently disables contract failure detection for every pending
-interaction from every consumer — not just the one that prompted the change.
-Any new consumer interaction published to the broker will silently pass
-provider verification even if the provider doesn't support it yet.
-
-**The right pattern: treat it like `PACT_BREAKING_CHANGE`.**
-
-If `enablePending` is genuinely needed as a bridge, scope it the same way
-the breaking-change flag is scoped — via a PR description checkbox read by
-the `detect-breaking-change` action, or a workflow `workflow_dispatch` input.
-This makes the bypass explicit, visible, and temporary:
-
-```yaml
-# ✅ Conditional — only active when the PR opts in
-- name: Set pending flag
-  if: github.event_name == 'pull_request'
-  uses: actions/github-script@v7
-  with:
-    script: |
-      const body = context.payload.pull_request.body || '';
-      const enable = body.toLowerCase().includes('[x] enable pending pacts');
-      core.exportVariable('PACT_ENABLE_PENDING', String(enable));
-```
-
-**The better fix: fix the underlying cause.**
-
-`enablePending` is almost always a symptom of one of two root problems:
-
-1. **Consumer interactions marked as pending at publish time** (e.g. patching
-   pact JSON via `jq` in a publish script) because some interactions can't be
-   verified in CI. The preferred fix is to correct the provider state handler
-   and its test data so the interaction verifies normally. If that's not
-   feasible, exclude the interaction from the pact suite entirely — do not
-   silently bypass verification for it with a global flag.
-
-2. **Cumulative pact files from rebasing consumer branches on top of each
-   other.** When developer A's feature branch is rebased onto developer B's
-   feature branch, the pact file inherits B's unverified interactions. The
-   provider CI then tries to verify interactions it doesn't own yet and fails.
-   In setups where consumer version selectors always include `matchingBranch`
-   (which is the default in `buildVerifierOptions`), stacking consumer branches
-   breaks this scoping: the provider on branch A picks up both A's and B's
-   interactions via `matchingBranch`, but only has state handlers for A's. The
-   process fix: consumer feature branches should branch off `main`
-   independently. The phase/release branch is a *merge target*, not a base
-   for new feature work.
+The better fix is to address the root cause: fix the provider state handler so the interaction verifies normally, or keep consumer feature branches off `main` independently rather than stacking them on each other.
 
 ### Cross-execution protection with payload URL matching
 
