@@ -16,7 +16,7 @@ runs:
       with:
         script: |
           const prBody = context.payload.pull_request.body || '';
-          if (prBody.includes('[x] Pact breaking change')) {
+          if (prBody.toLowerCase().includes('[x] pact breaking change')) {
             core.exportVariable('PACT_BREAKING_CHANGE', 'true');
             console.log('PACT_BREAKING_CHANGE set to true based on PR description checkbox.');
           } else {
@@ -36,7 +36,7 @@ runs:
             commit_sha: context.sha,
           });
           const merged = prs.find(pr => pr.merged_at);
-          if (merged && (merged.body || '').includes('[x] Pact breaking change')) {
+          if (merged && (merged.body || '').toLowerCase().includes('[x] pact breaking change')) {
             core.exportVariable('PACT_BREAKING_CHANGE', 'true');
             console.log('PACT_BREAKING_CHANGE set to true from merged PR.');
           } else {

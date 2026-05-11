@@ -519,6 +519,71 @@ The step-by-step workflow:
 
 For the implementation workflow, see [buildVerifierOptions](./provider-verifier/build-verifier-options.md#breaking-changes-flow).
 
+### enablePending — bridge, not bypass
+
+`enablePending: true` tells the Pact Broker: "if this pact has never been
+successfully verified by me before, don't fail my build when verification
+fails." A pact is *pending* for a specific provider until that provider
+verifies it at least once. After the first successful verification, the pact
+loses its pending status and regressions will fail the build normally.
+
+This is a legitimate short-lived bridge for one specific scenario: a consumer
+publishes new interactions on a feature branch before the provider is ready to
+support them, and both teams are working in parallel toward the same release.
+
+**The trap: setting it permanently.**
+
+The most common mistake is baking `enablePending: true` permanently into a
+CI workflow env block to unblock a single PR:
+
+```yaml
+# ❌ Don't do this
+env:
+  PACT_ENABLE_PENDING: 'true'   # silently disables the safety net for all future contracts
+```
+
+This permanently disables contract failure detection for every pending
+interaction from every consumer — not just the one that prompted the change.
+Any new consumer interaction published to the broker will silently pass
+provider verification even if the provider doesn't support it yet.
+
+**The right pattern: treat it like `PACT_BREAKING_CHANGE`.**
+
+If `enablePending` is genuinely needed as a bridge, scope it the same way
+the breaking-change flag is scoped — via a PR description checkbox read by
+the `detect-breaking-change` action, or a workflow `workflow_dispatch` input.
+This makes the bypass explicit, visible, and temporary:
+
+```yaml
+# ✅ Conditional — only active when the PR opts in
+- name: Set pending flag
+  if: github.event_name == 'pull_request'
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const body = context.payload.pull_request.body || '';
+      const enable = body.toLowerCase().includes('[x] enable pending pacts');
+      core.exportVariable('PACT_ENABLE_PENDING', String(enable));
+```
+
+**The better fix: fix the underlying cause.**
+
+`enablePending` is almost always a symptom of one of two root problems:
+
+1. **Consumer interactions marked as pending at publish time** (e.g. patching
+   pact JSON via `jq` in a publish script) because some interactions can't be
+   verified in CI. Fix the CI data setup instead — if an interaction genuinely
+   can't be verified, exclude it from the pact suite rather than silently
+   bypassing verification for it.
+
+2. **Cumulative pact files from rebasing consumer branches on top of each
+   other.** When developer A's feature branch is rebased onto developer B's
+   feature branch, the pact file inherits B's unverified interactions. The
+   provider CI then tries to verify interactions it doesn't own yet and fails.
+   The fix is process: consumer feature branches should branch off `main`
+   independently, not off each other. The phase/release branch is a *merge
+   target*, not a base for new feature work.
+
 ### Cross-execution protection with payload URL matching
 
 In a microservices architecture with multiple provider-consumer pairs, a single
