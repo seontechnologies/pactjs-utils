@@ -16,7 +16,7 @@ runs:
       with:
         script: |
           const prBody = context.payload.pull_request.body || '';
-          if (prBody.includes('[x] Pact breaking change')) {
+          if (/^\s*[-*]?\s*\[x\]\s+pact breaking change\b/im.test(prBody)) {
             core.exportVariable('PACT_BREAKING_CHANGE', 'true');
             console.log('PACT_BREAKING_CHANGE set to true based on PR description checkbox.');
           } else {
@@ -36,7 +36,9 @@ runs:
             commit_sha: context.sha,
           });
           const merged = prs.find(pr => pr.merged_at);
-          if (merged && (merged.body || '').includes('[x] Pact breaking change')) {
+          // Direct pushes to main (CI bot, manual) will not have an associated merged PR;
+          // those are treated as non-breaking, which is safe for the standard workflow.
+          if (merged && /^\s*[-*]?\s*\[x\]\s+pact breaking change\b/im.test(merged.body || '')) {
             core.exportVariable('PACT_BREAKING_CHANGE', 'true');
             console.log('PACT_BREAKING_CHANGE set to true from merged PR.');
           } else {

@@ -33,7 +33,7 @@ const options = buildVerifierOptions({
 | `beforeEach`                | `() => Promise` — optional                 | Hook called before each interaction is verified.                                                         |
 | `afterEach`                 | `() => Promise` — optional                 | Hook called after each interaction is verified.                                                          |
 | `consumer`                  | `string` — optional                        | Scopes selectors to this consumer only. Omit to verify all consumers.                                    |
-| `enablePending`             | `boolean` — `false`                        | Pending pacts don't fail the build, giving consumers a grace period.                                     |
+| `enablePending`             | `boolean` — `false`                        | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending-bridge-not-bypass) for when to use this and why a permanent workflow env setting is dangerous. |
 | `requestFilter`             | `RequestFilter` — `noOpRequestFilter`      | Middleware applied to each verification request. See [Request Filter](../request-filter/).               |
 | `publishVerificationResult` | `boolean` — `true`                         | Publish results back to the Pact Broker.                                                                 |
 | `pactBrokerToken`           | `string` — `env.PACT_BROKER_TOKEN`         | Authentication token for the Pact Broker.                                                                |

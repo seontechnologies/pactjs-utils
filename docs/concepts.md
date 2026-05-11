@@ -519,6 +519,16 @@ The step-by-step workflow:
 
 For the implementation workflow, see [buildVerifierOptions](./provider-verifier/build-verifier-options.md#breaking-changes-flow).
 
+### enablePending
+
+`enablePending: true` tells the broker: don't fail the provider build when verifying a pact it has never successfully verified before. Once verified, the pact loses pending status and failures fail normally.
+
+Use it as a short-lived bridge when a consumer publishes new interactions before the provider is ready. **Never set it permanently in a workflow `env` block** — it silently bypasses verification for every pending interaction from every consumer.
+
+If you genuinely need it, scope it via a PR checkbox the same way `PACT_BREAKING_CHANGE` is handled — explicit, visible, temporary.
+
+The better fix is to address the root cause: fix the provider state handler so the interaction verifies normally, or keep consumer feature branches off `main` independently rather than stacking them on each other.
+
 ### Cross-execution protection with payload URL matching
 
 In a microservices architecture with multiple provider-consumer pairs, a single
