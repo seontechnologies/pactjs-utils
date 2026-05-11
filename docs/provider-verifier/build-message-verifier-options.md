@@ -34,7 +34,7 @@ const options = buildMessageVerifierOptions({
 | `includeMainAndDeployed`    | `boolean` — **required**                   | Controls selector breadth. Same behavior as `buildVerifierOptions`.  |
 | `stateHandlers`             | `StateHandlers` — optional                 | Provider state setup/teardown functions.                             |
 | `consumer`                  | `string` — optional                        | Scopes selectors to a single consumer.                               |
-| `enablePending`             | `boolean` — `false`                        | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending-bridge-not-bypass). |
+| `enablePending`             | `boolean` — `false`                        | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending). |
 | `logLevel`                  | `string` — `'info'`                        | Log verbosity (`'trace'` through `'error'`).                         |
 | `publishVerificationResult` | `boolean` — `true`                         | Publish results to broker.                                           |
 | `pactBrokerToken`           | `string` — `env.PACT_BROKER_TOKEN`         | Broker auth token.                                                   |
