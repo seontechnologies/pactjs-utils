@@ -57,6 +57,7 @@ jobs:
 
       # (2) Publish pacts to broker
       - name: Publish pacts to PactFlow
+        if: env.PACT_BROKER_BASE_URL != ''
         run: npm run publish:pact
 
       # After publish, PactFlow fires a webhook that triggers
@@ -68,10 +69,10 @@ jobs:
       # gate this to main only: if: github.ref == 'refs/heads/main' && env.PACT_BREAKING_CHANGE != 'true'
       # Once the first contract is published + verified on main, remove the main-only condition.
       - name: Can I deploy consumer?
-        if: env.PACT_BREAKING_CHANGE != 'true'
+        if: env.PACT_BROKER_BASE_URL != '' && env.PACT_BREAKING_CHANGE != 'true'
         run: npm run can:i:deploy:consumer
 
       # (5) Record deployment (main only)
       - name: Record consumer deployment (main only)
-        if: github.ref == 'refs/heads/main'
+        if: env.PACT_BROKER_BASE_URL != '' && github.ref == 'refs/heads/main'
         run: npm run record:consumer:deployment --env=dev

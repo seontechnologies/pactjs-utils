@@ -48,6 +48,7 @@ jobs:
         run: cd sample-app/backend && npx prisma generate
 
       - name: Run provider message queue verification
+        if: env.PACT_BROKER_BASE_URL != ''
         run: npm run test:pact:provider:remote:message
         env:
           PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
@@ -57,9 +58,9 @@ jobs:
       # gate this to main only: if: github.ref == 'refs/heads/main' && env.PACT_BREAKING_CHANGE != 'true'
       # Once the first contract is published + verified on main, remove the main-only condition.
       - name: Can I deploy provider?
-        if: env.PACT_BREAKING_CHANGE != 'true'
+        if: env.PACT_BROKER_BASE_URL != '' && env.PACT_BREAKING_CHANGE != 'true'
         run: npm run can:i:deploy:provider
 
       - name: Record provider deployment (main only)
-        if: github.ref == 'refs/heads/main'
+        if: env.PACT_BROKER_BASE_URL != '' && github.ref == 'refs/heads/main'
         run: npm run record:provider:deployment --env=dev

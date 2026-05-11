@@ -521,11 +521,14 @@ For the implementation workflow, see [buildVerifierOptions](./provider-verifier/
 
 ### enablePending — bridge, not bypass
 
-`enablePending: true` tells the Pact Broker: "if this pact has never been
-successfully verified by me before, don't fail my build when verification
-fails." A pact is *pending* for a specific provider until that provider
-verifies it at least once. After the first successful verification, the pact
-loses its pending status and regressions will fail the build normally.
+`enablePending: true` tells the Pact Broker: "if this pact is currently in
+pending state for me, don't fail my build when verification fails." PactFlow
+marks a pact as pending for a provider when that provider has not yet
+successfully verified it. Once the provider verifies it successfully, the pact
+loses its pending status and subsequent failures fail the build normally.
+Note: a content change to a previously-verified interaction can re-introduce
+pending status depending on your PactFlow configuration — pending is per
+provider+content, not a one-shot state.
 
 This is a legitimate short-lived bridge for one specific scenario: a consumer
 publishes new interactions on a feature branch before the provider is ready to
@@ -572,17 +575,22 @@ This makes the bypass explicit, visible, and temporary:
 
 1. **Consumer interactions marked as pending at publish time** (e.g. patching
    pact JSON via `jq` in a publish script) because some interactions can't be
-   verified in CI. Fix the CI data setup instead — if an interaction genuinely
-   can't be verified, exclude it from the pact suite rather than silently
-   bypassing verification for it.
+   verified in CI. The preferred fix is to correct the provider state handler
+   and its test data so the interaction verifies normally. If that's not
+   feasible, exclude the interaction from the pact suite entirely — do not
+   silently bypass verification for it with a global flag.
 
 2. **Cumulative pact files from rebasing consumer branches on top of each
    other.** When developer A's feature branch is rebased onto developer B's
    feature branch, the pact file inherits B's unverified interactions. The
    provider CI then tries to verify interactions it doesn't own yet and fails.
-   The fix is process: consumer feature branches should branch off `main`
-   independently, not off each other. The phase/release branch is a *merge
-   target*, not a base for new feature work.
+   In setups where consumer version selectors always include `matchingBranch`
+   (which is the default in `buildVerifierOptions`), stacking consumer branches
+   breaks this scoping: the provider on branch A picks up both A's and B's
+   interactions via `matchingBranch`, but only has state handlers for A's. The
+   process fix: consumer feature branches should branch off `main`
+   independently. The phase/release branch is a *merge target*, not a base
+   for new feature work.
 
 ### Cross-execution protection with payload URL matching
 
