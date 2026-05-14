@@ -161,7 +161,7 @@ describe('getProviderVersionTags', () => {
     expect(tags).toEqual(['local'])
   })
 
-  it('returns ["dev"] in CI when no breaking change and no branch', async () => {
+  it('returns [] in CI when branch is unset', async () => {
     // Re-mock is-ci as true for this test
     const mod = await import('is-ci')
     vi.mocked(mod).default = true as never
@@ -170,32 +170,73 @@ describe('getProviderVersionTags', () => {
     delete process.env.GITHUB_BRANCH
 
     const tags = getProviderVersionTags()
-    expect(tags).toContain('dev')
-    expect(tags).not.toContain('local')
+    // No `dev` tag without an explicit deployable branch — verification on
+    // a feature branch must not masquerade as the dev environment.
+    expect(tags).toEqual([])
 
     // Restore
     vi.mocked(mod).default = false as never
   })
 
-  it('includes GITHUB_BRANCH in CI', async () => {
+  it('returns ["dev", "master"] in CI on master branch', async () => {
     const mod = await import('is-ci')
     vi.mocked(mod).default = true as never
-    process.env.GITHUB_BRANCH = 'feature/my-branch'
+    delete process.env.PACT_BREAKING_CHANGE
+    process.env.GITHUB_BRANCH = 'master'
 
     const tags = getProviderVersionTags()
-    expect(tags).toContain('feature/my-branch')
-    expect(tags).toContain('dev')
+    expect(tags).toEqual(['dev', 'master'])
 
     vi.mocked(mod).default = false as never
   })
 
-  it('excludes "dev" when PACT_BREAKING_CHANGE is true', async () => {
+  it('returns ["dev", "main"] in CI on main branch', async () => {
+    const mod = await import('is-ci')
+    vi.mocked(mod).default = true as never
+    delete process.env.PACT_BREAKING_CHANGE
+    process.env.GITHUB_BRANCH = 'main'
+
+    const tags = getProviderVersionTags()
+    expect(tags).toEqual(['dev', 'main'])
+
+    vi.mocked(mod).default = false as never
+  })
+
+  it('omits "dev" on a feature branch in CI', async () => {
+    const mod = await import('is-ci')
+    vi.mocked(mod).default = true as never
+    delete process.env.PACT_BREAKING_CHANGE
+    process.env.GITHUB_BRANCH = 'feature/my-branch'
+
+    const tags = getProviderVersionTags()
+    // The `dev` tag is PactFlow's deployment marker. Tagging a PR with `dev`
+    // would make it masquerade as the version currently deployed in dev.
+    expect(tags).toEqual(['feature/my-branch'])
+    expect(tags).not.toContain('dev')
+
+    vi.mocked(mod).default = false as never
+  })
+
+  it('omits "dev" when PACT_BREAKING_CHANGE is true, even on master', async () => {
     const mod = await import('is-ci')
     vi.mocked(mod).default = true as never
     process.env.PACT_BREAKING_CHANGE = 'true'
+    process.env.GITHUB_BRANCH = 'master'
 
     const tags = getProviderVersionTags()
-    expect(tags).not.toContain('dev')
+    expect(tags).toEqual(['master'])
+
+    vi.mocked(mod).default = false as never
+  })
+
+  it('omits "dev" when PACT_BREAKING_CHANGE is true on a feature branch', async () => {
+    const mod = await import('is-ci')
+    vi.mocked(mod).default = true as never
+    process.env.PACT_BREAKING_CHANGE = 'true'
+    process.env.GITHUB_BRANCH = 'breaking/foo'
+
+    const tags = getProviderVersionTags()
+    expect(tags).toEqual(['breaking/foo'])
 
     vi.mocked(mod).default = false as never
   })

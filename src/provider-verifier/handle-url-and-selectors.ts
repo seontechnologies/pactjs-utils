@@ -43,23 +43,44 @@ export function handlePactBrokerUrlAndSelectors({
 
 /**
  * Generates an array of tags to associate with the provider version.
- * Tags are only used in Webhooks, therefore we use is-ci.
+ *
+ * The `'dev'` tag is reserved for builds on the deployable branch
+ * (`master` or `main`). PactFlow promotes the legacy `'dev'` tag into the
+ * `dev` environment, so tagging PR/feature-branch verifications with `'dev'`
+ * makes them masquerade as the version "currently in dev". That poisons every
+ * consumer's `can-i-deploy --to-environment dev` — the answer ends up
+ * depending on whichever provider PR happened to verify last, instead of
+ * what is actually deployed. Recording an actual deployment is the job of
+ * `record-deployment` (run only on master), not of the verifier.
+ *
+ * Behavior:
+ * - Local (non-CI):                          `['local']`
+ * - CI, branch is `master` / `main`:         `['dev', <branch>]` (unless PACT_BREAKING_CHANGE)
+ * - CI, any other branch:                    `[<branch>]`
+ * - CI, branch unset:                        `[]`
+ * - CI + PACT_BREAKING_CHANGE=true:          `'dev'` is always omitted
  */
 export function getProviderVersionTags(): string[] {
+  if (!isCI) {
+    const tags = ['local']
+    console.log('providerVersionTags:', tags)
+    return tags
+  }
+
+  const branch = process.env.GITHUB_BRANCH
+  const isBreakingChange = process.env.PACT_BREAKING_CHANGE === 'true'
+  const isDeployableBranch = branch === 'master' || branch === 'main'
+
+  console.log({ isBreakingChange, isDeployableBranch, branch })
+
   const tags: string[] = []
 
-  if (isCI) {
-    const isBreakingChange = process.env.PACT_BREAKING_CHANGE === 'true'
-    console.log({ isBreakingChange })
-    if (!isBreakingChange) {
-      tags.push('dev')
-    }
+  if (isDeployableBranch && !isBreakingChange) {
+    tags.push('dev')
+  }
 
-    if (process.env.GITHUB_BRANCH) {
-      tags.push(process.env.GITHUB_BRANCH)
-    }
-  } else {
-    tags.push('local')
+  if (branch) {
+    tags.push(branch)
   }
 
   console.log('providerVersionTags:', tags)
