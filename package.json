@@ -1,6 +1,6 @@
 {
   "name": "@seontechnologies/pactjs-utils",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A collection of utilities for Pact.js contract testing.",
   "workspaces": [
     "sample-app/*"
