@@ -147,25 +147,29 @@ describe('handlePactBrokerUrlAndSelectors', () => {
 describe('getProviderVersionTags', () => {
   const originalEnv = process.env
 
+  // Toggle is-ci safely across tests. afterEach always restores to `false`,
+  // so a failing assertion can't leak `isCI = true` into the next test.
+  const setIsCI = async (value: boolean): Promise<void> => {
+    const mod = await import('is-ci')
+    vi.mocked(mod).default = value as never
+  }
+
   beforeEach(() => {
     process.env = { ...originalEnv }
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env = originalEnv
+    await setIsCI(false)
   })
 
-  it('returns ["local"] when not in CI', async () => {
-    // is-ci is mocked to return false
+  it('returns ["local"] when not in CI', () => {
     const tags = getProviderVersionTags()
     expect(tags).toEqual(['local'])
   })
 
   it('returns [] in CI when branch is unset', async () => {
-    // Re-mock is-ci as true for this test
-    const mod = await import('is-ci')
-    vi.mocked(mod).default = true as never
-
+    await setIsCI(true)
     delete process.env.PACT_BREAKING_CHANGE
     delete process.env.GITHUB_BRANCH
 
@@ -173,38 +177,28 @@ describe('getProviderVersionTags', () => {
     // No `dev` tag without an explicit deployable branch — verification on
     // a feature branch must not masquerade as the dev environment.
     expect(tags).toEqual([])
-
-    // Restore
-    vi.mocked(mod).default = false as never
   })
 
   it('returns ["dev", "master"] in CI on master branch', async () => {
-    const mod = await import('is-ci')
-    vi.mocked(mod).default = true as never
+    await setIsCI(true)
     delete process.env.PACT_BREAKING_CHANGE
     process.env.GITHUB_BRANCH = 'master'
 
     const tags = getProviderVersionTags()
     expect(tags).toEqual(['dev', 'master'])
-
-    vi.mocked(mod).default = false as never
   })
 
   it('returns ["dev", "main"] in CI on main branch', async () => {
-    const mod = await import('is-ci')
-    vi.mocked(mod).default = true as never
+    await setIsCI(true)
     delete process.env.PACT_BREAKING_CHANGE
     process.env.GITHUB_BRANCH = 'main'
 
     const tags = getProviderVersionTags()
     expect(tags).toEqual(['dev', 'main'])
-
-    vi.mocked(mod).default = false as never
   })
 
   it('omits "dev" on a feature branch in CI', async () => {
-    const mod = await import('is-ci')
-    vi.mocked(mod).default = true as never
+    await setIsCI(true)
     delete process.env.PACT_BREAKING_CHANGE
     process.env.GITHUB_BRANCH = 'feature/my-branch'
 
@@ -213,31 +207,23 @@ describe('getProviderVersionTags', () => {
     // would make it masquerade as the version currently deployed in dev.
     expect(tags).toEqual(['feature/my-branch'])
     expect(tags).not.toContain('dev')
-
-    vi.mocked(mod).default = false as never
   })
 
   it('omits "dev" when PACT_BREAKING_CHANGE is true, even on master', async () => {
-    const mod = await import('is-ci')
-    vi.mocked(mod).default = true as never
+    await setIsCI(true)
     process.env.PACT_BREAKING_CHANGE = 'true'
     process.env.GITHUB_BRANCH = 'master'
 
     const tags = getProviderVersionTags()
     expect(tags).toEqual(['master'])
-
-    vi.mocked(mod).default = false as never
   })
 
   it('omits "dev" when PACT_BREAKING_CHANGE is true on a feature branch', async () => {
-    const mod = await import('is-ci')
-    vi.mocked(mod).default = true as never
+    await setIsCI(true)
     process.env.PACT_BREAKING_CHANGE = 'true'
     process.env.GITHUB_BRANCH = 'breaking/foo'
 
     const tags = getProviderVersionTags()
     expect(tags).toEqual(['breaking/foo'])
-
-    vi.mocked(mod).default = false as never
   })
 })
