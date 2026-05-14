@@ -19,15 +19,15 @@ const tags = getProviderVersionTags()
 
 ## Behavior
 
-| Environment    | `PACT_BREAKING_CHANGE` | `GITHUB_BRANCH` | Result                   |
-| -------------- | ---------------------- | --------------- | ------------------------ |
-| Local (not CI) | any                    | any             | `['local']`              |
-| CI             | unset or `'false'`     | unset           | `[]`                     |
-| CI             | unset or `'false'`     | `'master'`      | `['dev', 'master']`      |
-| CI             | unset or `'false'`     | `'main'`        | `['dev', 'main']`        |
-| CI             | unset or `'false'`     | `'feature/foo'` | `['feature/foo']`        |
-| CI             | `'true'`               | `'master'`      | `['master']`             |
-| CI             | `'true'`               | `'feature/foo'` | `['feature/foo']`        |
+| Environment    | `PACT_BREAKING_CHANGE` | `GITHUB_BRANCH` | Result              |
+| -------------- | ---------------------- | --------------- | ------------------- |
+| Local (not CI) | any                    | any             | `['local']`         |
+| CI             | unset or `'false'`     | unset           | `[]`                |
+| CI             | unset or `'false'`     | `'master'`      | `['dev', 'master']` |
+| CI             | unset or `'false'`     | `'main'`        | `['dev', 'main']`   |
+| CI             | unset or `'false'`     | `'feature/foo'` | `['feature/foo']`   |
+| CI             | `'true'`               | `'master'`      | `['master']`        |
+| CI             | `'true'`               | `'feature/foo'` | `['feature/foo']`   |
 
 **Key detail (`'dev'` tag)**: PactFlow promotes the legacy `'dev'` tag into
 the `dev` environment. Tagging a feature/PR build with `'dev'` therefore makes

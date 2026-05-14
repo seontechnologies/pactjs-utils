@@ -27,23 +27,23 @@ const options = buildMessageVerifierOptions({
 
 ## Parameters
 
-| Name                        | Type / Default                             | What it does                                                         |
-| --------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| `provider`                  | `string` — **required**                    | Provider name; must match consumer message pact definitions.         |
-| `messageProviders`          | `MessageProviders` — **required**          | Maps message description strings to functions returning the payload. |
-| `includeMainAndDeployed`    | `boolean` — **required**                   | Controls selector breadth. Same behavior as `buildVerifierOptions`.  |
-| `stateHandlers`             | `StateHandlers` — optional                 | Provider state setup/teardown functions.                             |
-| `consumer`                  | `string` — optional                        | Scopes selectors to a single consumer.                               |
+| Name                        | Type / Default                             | What it does                                                                                                                    |
+| --------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `provider`                  | `string` — **required**                    | Provider name; must match consumer message pact definitions.                                                                    |
+| `messageProviders`          | `MessageProviders` — **required**          | Maps message description strings to functions returning the payload.                                                            |
+| `includeMainAndDeployed`    | `boolean` — **required**                   | Controls selector breadth. Same behavior as `buildVerifierOptions`.                                                             |
+| `stateHandlers`             | `StateHandlers` — optional                 | Provider state setup/teardown functions.                                                                                        |
+| `consumer`                  | `string` — optional                        | Scopes selectors to a single consumer.                                                                                          |
 | `enablePending`             | `boolean` — `false`                        | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending). |
-| `logLevel`                  | `string` — `'info'`                        | Log verbosity (`'trace'` through `'error'`).                         |
-| `publishVerificationResult` | `boolean` — `true`                         | Publish results to broker.                                           |
-| `pactBrokerToken`           | `string` — `env.PACT_BROKER_TOKEN`         | Broker auth token.                                                   |
-| `providerVersion`           | `string` — `env.GITHUB_SHA \|\| 'unknown'` | Provider version string.                                             |
-| `providerVersionBranch`     | `string` — `env.GITHUB_BRANCH \|\| 'main'` | Branch name.                                                         |
-| `providerVersionTags`       | `string[]` — `getProviderVersionTags()`    | Provider version tags.                                               |
-| `pactUrls`                  | `string[]` — optional                      | Local pact file paths. Bypasses broker when provided.                |
-| `pactBrokerUrl`             | `string` — `env.PACT_BROKER_BASE_URL`      | Broker base URL.                                                     |
-| `pactPayloadUrl`            | `string` — `env.PACT_PAYLOAD_URL`          | Webhook payload URL.                                                 |
+| `logLevel`                  | `string` — `'info'`                        | Log verbosity (`'trace'` through `'error'`).                                                                                    |
+| `publishVerificationResult` | `boolean` — `true`                         | Publish results to broker.                                                                                                      |
+| `pactBrokerToken`           | `string` — `env.PACT_BROKER_TOKEN`         | Broker auth token.                                                                                                              |
+| `providerVersion`           | `string` — `env.GITHUB_SHA \|\| 'unknown'` | Provider version string.                                                                                                        |
+| `providerVersionBranch`     | `string` — `env.GITHUB_BRANCH \|\| 'main'` | Branch name.                                                                                                                    |
+| `providerVersionTags`       | `string[]` — `getProviderVersionTags()`    | Provider version tags.                                                                                                          |
+| `pactUrls`                  | `string[]` — optional                      | Local pact file paths. Bypasses broker when provided.                                                                           |
+| `pactBrokerUrl`             | `string` — `env.PACT_BROKER_BASE_URL`      | Broker base URL.                                                                                                                |
+| `pactPayloadUrl`            | `string` — `env.PACT_PAYLOAD_URL`          | Webhook payload URL.                                                                                                            |
 
 ## Return Value
 

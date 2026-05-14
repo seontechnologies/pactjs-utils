@@ -29,7 +29,35 @@ const getOpenApiExample = (schema: z.ZodTypeAny): unknown => {
 const resolveExample = (schema: z.ZodTypeAny, provided?: unknown): unknown =>
   provided !== undefined ? provided : getOpenApiExample(schema)
 
-const def = (schema: z.ZodTypeAny): ZodDef => schema.def as unknown as ZodDef
+// Zod 4 uses `.def`, Zod 3 uses `._def`
+const def = (schema: z.ZodTypeAny): ZodDef =>
+  ((schema as unknown as Record<string, unknown>).def ??
+    (schema as unknown as Record<string, unknown>)._def) as ZodDef
+
+// Zod 4 exposes `.type` (short names); Zod 3 uses `._def.typeName` (e.g. 'ZodString')
+const ZOD3_TYPE_MAP: Record<string, string> = {
+  ZodString: 'string',
+  ZodNumber: 'number',
+  ZodBigInt: 'bigint',
+  ZodBoolean: 'boolean',
+  ZodNull: 'null',
+  ZodOptional: 'optional',
+  ZodNullable: 'nullable',
+  ZodDefault: 'default',
+  ZodObject: 'object',
+  ZodArray: 'array',
+  ZodUnion: 'union',
+  ZodLiteral: 'literal',
+  ZodEnum: 'enum'
+}
+
+const getTypeName = (schema: z.ZodTypeAny): string => {
+  const s = schema as unknown as Record<string, unknown>
+  if (typeof s.type === 'string') return s.type
+  const zod3TypeName = (s._def as Record<string, unknown> | undefined)
+    ?.typeName as string | undefined
+  return (zod3TypeName && ZOD3_TYPE_MAP[zod3TypeName]) ?? 'unknown'
+}
 
 const isIntegerCheck = (d: ZodDef): boolean => {
   const checks = (d.checks as Array<Record<string, unknown>> | undefined) ?? []
@@ -164,7 +192,7 @@ export const zodToPactMatchers = (
   schema: z.ZodTypeAny,
   example?: unknown
 ): unknown => {
-  const typeName = schema.type as string
+  const typeName = getTypeName(schema)
   const matcher = matchers[typeName]
   return matcher
     ? matcher(schema, example)
