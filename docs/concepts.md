@@ -501,11 +501,15 @@ verification to only `{ matchingBranch: true }` -- the provider verifies only
 against a consumer branch that has already been updated to expect the new
 contract.
 
-The `getProviderVersionTags` function also responds to this variable: in CI, it
-normally tags the provider version with `'dev'` plus the branch name, but when
-`PACT_BREAKING_CHANGE` is `'true'`, the `'dev'` tag is omitted. This prevents
-the breaking version from being picked up by other consumers' `can-i-deploy`
-checks until the change is fully coordinated.
+The `getProviderVersionTags` function also responds to this variable: in CI
+on `master`/`main`, it normally tags the provider version with `'dev'` plus
+the branch name, but when `PACT_BREAKING_CHANGE` is `'true'`, the `'dev'`
+tag is omitted. This prevents the breaking version from being picked up by
+other consumers' `can-i-deploy` checks until the change is fully coordinated.
+
+On feature/PR branches the `'dev'` tag is never added — only the branch tag.
+See [`getProviderVersionTags`](./provider-verifier/get-provider-version-tags.md)
+for the full behavior table and the rationale.
 
 The step-by-step workflow:
 

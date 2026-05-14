@@ -64,7 +64,7 @@ across an entire organization.
 | `PACT_BROKER_TOKEN`    | Authentication token for the Pact Broker                              | Yes (for remote flow)                    | --          |
 | `GITHUB_SHA`           | Commit SHA used as `providerVersion`                                  | No (set automatically by GitHub Actions) | `'unknown'` |
 | `GITHUB_BRANCH`        | Branch name used as `providerVersionBranch` and in version tags       | No (set automatically by GitHub Actions) | `'main'`    |
-| `PACT_BREAKING_CHANGE` | Set to `'true'` to exclude the `'dev'` tag from provider version tags | No                                       | `'false'`   |
+| `PACT_BREAKING_CHANGE` | Set to `'true'` to exclude the `'dev'` tag even on `master`/`main`. The `'dev'` tag is only added on the deployable branch in the first place — see [`getProviderVersionTags`](./get-provider-version-tags). | No                                       | `'false'`   |
 | `PACT_PAYLOAD_URL`     | Webhook-provided URL pointing to a specific pact for verification     | No (set by PactFlow webhooks)            | --          |
 
 See the `.env.example` file in the repository root for a template.
