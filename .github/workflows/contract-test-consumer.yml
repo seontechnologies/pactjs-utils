@@ -19,6 +19,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+
 env:
   PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
   PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
@@ -53,11 +57,32 @@ jobs:
       # For fast single-pass iteration during TDD: `npm run test:pact:consumer:run`.
       # Requires jq (preinstalled on ubuntu-latest).
       - name: Run consumer contract tests
+        id: consumer-tests
+        continue-on-error: true
         run: npm run test:pact:consumer
 
       # (2) Publish pacts to broker
       - name: Publish pacts to PactFlow
+        id: publish
+        if: steps.consumer-tests.outcome == 'success'
+        continue-on-error: true
         run: npm run publish:pact
+
+      - name: Pact report and comment
+        if: always()
+        uses: ./.github/actions/pact-report-comment
+        with:
+          artifacts-path: pacts/
+          report-name: pact-consumer-${{ github.event.pull_request.number || github.sha }}
+          test-outcome: ${{ (steps.consumer-tests.outcome == 'success' && steps.publish.outcome == 'success') && 'success' || 'failure' }}
+          check-label: 'Consumer contract tests + publish'
+          pacticipant: SampleAppConsumer
+          broker-base-url: ${{ env.PACT_BROKER_BASE_URL }}
+          publish-result-path: pact-publish-result.json
+
+      - name: Fail if consumer contract tests or publish failed
+        if: steps.consumer-tests.outcome == 'failure' || steps.publish.outcome == 'failure'
+        run: exit 1
 
       # After publish, PactFlow fires a webhook that triggers
       # the provider's contract-test-provider.yml workflow.

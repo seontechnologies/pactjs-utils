@@ -42,8 +42,11 @@ else
     echo "warning: jq not found, skipping pact normalization" >&2
 fi
 
+# --output=json is captured to a file so pact-report-comment (CI) can scrape a
+# browsable Pact Broker URL out of the response; `tee` still surfaces it in the CI log.
 pact-broker publish "$PACT_DIR" \
     --consumer-app-version="$GITHUB_SHA" \
     --branch="$GITHUB_BRANCH" \
     --broker-base-url="$PACT_BROKER_BASE_URL" \
-    --broker-token="$PACT_BROKER_TOKEN"
+    --broker-token="$PACT_BROKER_TOKEN" \
+    --output=json | tee pact-publish-result.json
