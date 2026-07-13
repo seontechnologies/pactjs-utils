@@ -1,0 +1,252 @@
+name: Pact report and comment
+
+# IMPORTANT: Run the Pact consumer/provider test step(s) before using this action
+description: 'Upload Pact contract artifacts, generate a step summary, and post a PR comment with a Pact Broker link'
+
+inputs:
+  artifacts-path:
+    description: 'Newline-separated paths to upload as the pact artifact'
+    required: false
+    default: 'pacts/'
+  report-name:
+    description: 'Name for the uploaded artifact'
+    required: false
+    default: 'pact-report'
+  retention-days:
+    description: 'Artifact retention days'
+    required: false
+    default: '14'
+  test-outcome:
+    description: 'Outcome of the Pact test step (success/failure)'
+    required: true
+  check-label:
+    description: 'Label describing the check that ran'
+    required: false
+    default: 'Pact contract test'
+  pacticipant:
+    description: 'Consumer or provider pacticipant name to link to in the Pact Broker'
+    required: false
+    default: ''
+  broker-base-url:
+    description: 'Pact Broker / PactFlow base URL. Omit to skip the broker link entirely.'
+    required: false
+    default: ''
+  consumer-version:
+    description: 'Consumer application version for the pacticipant-version fallback link. Defaults to github.sha.'
+    required: false
+    default: ''
+  publish-result-path:
+    description: 'Path to the JSON file produced by `pact-broker publish --output json` (consumer jobs only)'
+    required: false
+    default: ''
+  comment-on-pr:
+    description: 'Whether to post a PR comment'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token to use for GitHub API (pass GITHUB_TOKEN)'
+    required: false
+    default: ''
+
+outputs:
+  report-url:
+    description: 'Download URL for the pact artifact'
+    value: ${{ steps.resolve-url.outputs.report_url }}
+  broker-url:
+    description: 'Resolved Pact Broker link, if any'
+    value: ${{ steps.resolve-broker-url.outputs.broker_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Upload pact artifact
+      id: upload-report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.report-name }}
+        path: ${{ inputs.artifacts-path }}
+        if-no-files-found: ignore
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Resolve report download URL
+      id: resolve-url
+      if: ${{ always() }}
+      uses: actions/github-script@v7
+      env:
+        ARTIFACT_NAME: ${{ inputs.report-name }}
+      with:
+        github-token: ${{ inputs.github-token || github.token }}
+        script: |
+          const artifactName = process.env.ARTIFACT_NAME;
+          const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const uploadedArtifactUrl = '${{ steps.upload-report.outputs.artifact-url }}';
+          let reportUrl = uploadedArtifactUrl || runUrl;
+          let hasReport = false;
+          if (uploadedArtifactUrl) {
+            hasReport = true;
+          } else {
+            try {
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+              });
+              const artifact = data.artifacts.find((a) => a.name === artifactName);
+              if (artifact?.id) {
+                hasReport = true;
+                reportUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts/${artifact.id}`;
+              }
+            } catch (e) {
+              core.warning(`Could not resolve report URL: ${e.message}`);
+            }
+          }
+          core.setOutput('report_url', reportUrl);
+          core.setOutput('run_url', runUrl);
+          core.setOutput('has_report', String(hasReport));
+
+    - name: Resolve Pact Broker URL
+      id: resolve-broker-url
+      if: always()
+      shell: bash
+      env:
+        BROKER_BASE_URL: ${{ inputs.broker-base-url }}
+        PACTICIPANT: ${{ inputs.pacticipant }}
+        CONSUMER_VERSION: ${{ inputs.consumer-version || github.sha }}
+        PUBLISH_RESULT_PATH: ${{ inputs.publish-result-path }}
+      run: |
+        broker_url=""
+        if [ -n "${BROKER_BASE_URL}" ]; then
+          # Prefer a link scraped from the `pact-broker publish --output json` response - it
+          # points at the specific published contract rather than just the pacticipant overview.
+          # We first look for the documented pb:contracts / pb:pacticipant-version HAL relations
+          # (see https://docs.pact.io/pact_broker/advanced_topics/publish_contracts_api); the
+          # exact response shape isn't a stable public contract though, so if neither relation
+          # is found we fall back to walking every string value in the JSON for a broker-hosted
+          # URL instead of erroring out.
+          if [ -n "${PUBLISH_RESULT_PATH}" ] && [ -f "${PUBLISH_RESULT_PATH}" ]; then
+            broker_url=$(jq -r --arg base "${BROKER_BASE_URL}" '
+              def precise:
+                [paths(type == "string") as $p
+                 | select($p[-1] == "href" and (($p[-2] == "pb:contracts") or ($p[-2] == "pb:pacticipant-version")))
+                 | getpath($p)]
+                | map(select(startswith($base)))
+                | first;
+              def broad:
+                [.. | strings | select(startswith($base))] | first;
+              precise // broad // empty
+            ' "${PUBLISH_RESULT_PATH}" 2>/dev/null || true)
+          fi
+          if [ -z "${broker_url}" ] && [ -n "${PACTICIPANT}" ]; then
+            broker_url="${BROKER_BASE_URL}/pacticipants/${PACTICIPANT}/versions/${CONSUMER_VERSION}"
+          fi
+        fi
+        echo "broker_url=${broker_url}" >> "$GITHUB_OUTPUT"
+
+    - name: Generate summary
+      if: always()
+      shell: bash
+      env:
+        CHECK_LABEL: ${{ inputs.check-label }}
+        TEST_OUTCOME: ${{ inputs.test-outcome }}
+        HAS_REPORT: ${{ steps.resolve-url.outputs.has_report }}
+        REPORT_URL: ${{ steps.resolve-url.outputs.report_url }}
+        RUN_URL: ${{ steps.resolve-url.outputs.run_url }}
+        BROKER_URL: ${{ steps.resolve-broker-url.outputs.broker_url }}
+        REPORT_NAME: ${{ inputs.report-name }}
+      run: |
+        OUTCOME_NORM="$(echo "${TEST_OUTCOME}" | tr '[:upper:]' '[:lower:]')"
+        if [ "${OUTCOME_NORM}" = "success" ]; then
+          STATUS="SUCCESS"
+        else
+          STATUS="FAILURE"
+        fi
+
+        echo "## Pact contract testing (${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Check | Outcome |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| ${CHECK_LABEL} | ${TEST_OUTCOME} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "${HAS_REPORT}" = "true" ]; then
+          echo "- Pact files: [${REPORT_NAME}](${REPORT_URL})" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- Pact files: no artifacts found in this run" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Run: ${RUN_URL}" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        if [ -n "${BROKER_URL}" ]; then
+          echo "- Pact Broker: ${BROKER_URL}" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Comment Pact result on PR
+      if: ${{ always() && github.event_name == 'pull_request' && inputs.comment-on-pr == 'true' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
+      uses: actions/github-script@v7
+      env:
+        INPUT_CHECK_LABEL: ${{ inputs.check-label }}
+        INPUT_TEST_OUTCOME: ${{ inputs.test-outcome }}
+        INPUT_REPORT_URL: ${{ steps.resolve-url.outputs.report_url }}
+        INPUT_RUN_URL: ${{ steps.resolve-url.outputs.run_url }}
+        INPUT_HAS_REPORT: ${{ steps.resolve-url.outputs.has_report }}
+        INPUT_BROKER_URL: ${{ steps.resolve-broker-url.outputs.broker_url }}
+      with:
+        github-token: ${{ inputs.github-token || github.token }}
+        script: |
+          const testOutcome = process.env.INPUT_TEST_OUTCOME.toLowerCase();
+          const checkLabel = process.env.INPUT_CHECK_LABEL;
+          const hasReport = process.env.INPUT_HAS_REPORT === 'true';
+          const reportUrl = process.env.INPUT_REPORT_URL;
+          const runUrl = process.env.INPUT_RUN_URL;
+          const brokerUrl = process.env.INPUT_BROKER_URL;
+
+          const isSuccess = testOutcome === 'success';
+          const statusEmoji = isSuccess ? '✅' : '❌';
+          const statusText = isSuccess ? 'SUCCESS' : 'FAILURE';
+
+          const reportLink = hasReport ? reportUrl : runUrl;
+          const marker = `<!-- pact-broker-report: ${checkLabel} -->`;
+
+          const lines = [
+            marker,
+            `## 🤝 Pact Contract Testing: ${statusEmoji} **${statusText}**`,
+            '',
+            `| Check | Outcome |`,
+            `|-------|---------|`,
+            `| ${checkLabel} | ${testOutcome} |`,
+            '',
+            `📦 **[Download Pact Files](${reportLink})**`,
+          ];
+          if (brokerUrl) {
+            lines.push(`🔗 **[View in Pact Broker](${brokerUrl})**`);
+          }
+          const body = lines.join('\n');
+
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            per_page: 100,
+          });
+
+          const existing = comments.find((c) =>
+            c.user?.login === 'github-actions[bot]' &&
+            c.body?.includes(marker)
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+            core.info(`Updated existing Pact comment (id: ${existing.id})`);
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            core.info('Created new Pact comment');
+          }

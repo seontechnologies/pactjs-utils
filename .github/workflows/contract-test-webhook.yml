@@ -89,12 +89,48 @@ jobs:
       - name: Generate Prisma types
         run: cd sample-app/backend && npx prisma generate
 
+      # Both verifications always run regardless of each other's outcome - this
+      # workflow used to stop at the first failure, but that meant a provider with
+      # both a broken HTTP contract and a broken message contract only ever surfaced
+      # one of the two per run. Each still reports and fails independently below.
       - name: Run provider HTTP contract verification
+        id: provider-verify-http
+        continue-on-error: true
         run: npm run test:pact:provider:remote:contract
         env:
           PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
 
       - name: Run provider message queue verification
+        id: provider-verify-message
+        continue-on-error: true
         run: npm run test:pact:provider:remote:message
         env:
           PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
+
+      - name: Pact report and comment (HTTP)
+        if: always()
+        uses: ./.github/actions/pact-report-comment
+        with:
+          artifacts-path: pacts/
+          report-name: pact-webhook-provider-http-${{ github.event.client_payload.sha || github.sha }}
+          test-outcome: ${{ steps.provider-verify-http.outcome }}
+          check-label: 'Provider HTTP contract verification (webhook)'
+          pacticipant: SampleMoviesAPI
+          broker-base-url: ${{ env.PACT_BROKER_BASE_URL }}
+          comment-on-pr: 'false'
+
+      - name: Pact report and comment (message)
+        if: always()
+        uses: ./.github/actions/pact-report-comment
+        with:
+          artifacts-path: pacts/
+          report-name: pact-webhook-provider-message-${{ github.event.client_payload.sha || github.sha }}
+          test-outcome: ${{ steps.provider-verify-message.outcome }}
+          check-label: 'Provider message queue verification (webhook)'
+          pacticipant: SampleMoviesAPI-event-producer
+          broker-base-url: ${{ env.PACT_BROKER_BASE_URL }}
+          comment-on-pr: 'false'
+
+      - name: Fail if provider verification failed
+        if: steps.provider-verify-http.outcome == 'failure' || steps.provider-verify-message.outcome == 'failure'
+        run: exit 1

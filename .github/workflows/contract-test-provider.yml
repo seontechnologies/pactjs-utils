@@ -18,6 +18,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+
 env:
   PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
   PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
@@ -48,9 +52,26 @@ jobs:
         run: cd sample-app/backend && npx prisma generate
 
       - name: Run provider HTTP contract verification
+        id: provider-verify
+        continue-on-error: true
         run: npm run test:pact:provider:remote:contract
         env:
           PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
+
+      - name: Pact report and comment
+        if: always()
+        uses: ./.github/actions/pact-report-comment
+        with:
+          artifacts-path: pacts/
+          report-name: pact-provider-http-${{ github.event.pull_request.number || github.sha }}
+          test-outcome: ${{ steps.provider-verify.outcome }}
+          check-label: 'Provider HTTP contract verification'
+          pacticipant: SampleMoviesAPI
+          broker-base-url: ${{ env.PACT_BROKER_BASE_URL }}
+
+      - name: Fail if provider verification failed
+        if: steps.provider-verify.outcome == 'failure'
+        run: exit 1
 
       # Check deployment safety
       # NOTE: First-time bootstrap — if no verified contract exists on the broker yet,
