@@ -65,16 +65,23 @@ jobs:
             echo "PACT_BREAKING_CHANGE=false" >> "$GITHUB_ENV"
           fi
 
-      # Try to checkout matching provider branch, fall back to main
-      - name: Checkout matching branch
+      # Checkout strategy (in priority order):
+      #   1. Consumer branch name exists on provider: coordinated breaking-change workflow
+      #   2. GITHUB_BRANCH (${pactbroker.providerVersionBranch}): provider's last registered
+      #      branch in PactFlow, e.g. release/week-32. Non-empty and not main/master only.
+      #   3. main: absolute fallback
+      - name: Checkout provider branch
         env:
           CONSUMER_BRANCH: ${{ steps.pact-info.outputs.consumer_branch }}
         run: |
           if git ls-remote --heads origin "$CONSUMER_BRANCH" | grep -q "$CONSUMER_BRANCH"; then
-            echo "Checking out matching provider branch: $CONSUMER_BRANCH"
+            echo "Checking out consumer-matching provider branch: $CONSUMER_BRANCH"
             git checkout "$CONSUMER_BRANCH"
+          elif [ -n "$GITHUB_BRANCH" ] && [ "$GITHUB_BRANCH" != "main" ] && [ "$GITHUB_BRANCH" != "master" ] && git ls-remote --heads origin "$GITHUB_BRANCH" | grep -q "$GITHUB_BRANCH"; then
+            echo "Checking out provider branch from PactFlow: $GITHUB_BRANCH"
+            git checkout "$GITHUB_BRANCH"
           else
-            echo "No matching branch '$CONSUMER_BRANCH', using main"
+            echo "No matching branch found, falling back to main"
             git checkout main
           fi
 

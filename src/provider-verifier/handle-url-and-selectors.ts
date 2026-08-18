@@ -14,12 +14,14 @@ export function handlePactBrokerUrlAndSelectors({
   pactBrokerUrl,
   consumer,
   includeMainAndDeployed,
+  consumerBranch,
   options
 }: {
   pactPayloadUrl?: string
   pactBrokerUrl?: string
   consumer?: string
   includeMainAndDeployed: boolean
+  consumerBranch?: string
   options: PactMessageProviderOptions | VerifierOptions
 }): void {
   if (pactPayloadUrl) {
@@ -37,6 +39,7 @@ export function handlePactBrokerUrlAndSelectors({
     pactBrokerUrl,
     consumer,
     includeMainAndDeployed,
+    consumerBranch,
     options
   })
 }
@@ -93,7 +96,8 @@ export function getProviderVersionTags(): string[] {
  */
 function buildConsumerVersionSelectors(
   consumer: string | undefined,
-  includeMainAndDeployed = true
+  includeMainAndDeployed = true,
+  consumerBranch?: string
 ): ConsumerVersionSelector[] {
   const baseSelector: Partial<ConsumerVersionSelector> = consumer
     ? { consumer }
@@ -102,6 +106,10 @@ function buildConsumerVersionSelectors(
   const selectors: ConsumerVersionSelector[] = [
     { ...baseSelector, matchingBranch: true }
   ]
+
+  if (consumerBranch) {
+    selectors.push({ ...baseSelector, branch: consumerBranch })
+  }
 
   if (includeMainAndDeployed) {
     selectors.push({ ...baseSelector, mainBranch: true })
@@ -189,11 +197,13 @@ function usePactBrokerUrlAndSelectors({
   pactBrokerUrl,
   consumer,
   includeMainAndDeployed,
+  consumerBranch,
   options
 }: {
   pactBrokerUrl: string | undefined
   consumer: string | undefined
   includeMainAndDeployed: boolean
+  consumerBranch: string | undefined
   options: PactMessageProviderOptions | VerifierOptions
 }): void {
   if (!pactBrokerUrl) {
@@ -205,13 +215,20 @@ function usePactBrokerUrlAndSelectors({
   options.pactBrokerUrl = pactBrokerUrl
   options.consumerVersionSelectors = buildConsumerVersionSelectors(
     consumer,
-    includeMainAndDeployed
+    includeMainAndDeployed,
+    consumerBranch
   )
 
   if (consumer) {
     console.log(`Running verification for consumer: ${consumer}`)
   } else {
     console.log('Running verification for all consumers')
+  }
+
+  if (consumerBranch) {
+    console.log(
+      `Also verifying against consumer branch: ${consumerBranch} (set via PACT_CONSUMER_BRANCH)`
+    )
   }
 
   if (includeMainAndDeployed) {

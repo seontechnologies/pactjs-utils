@@ -33,6 +33,7 @@ const options = buildVerifierOptions({
 | `beforeEach`                | `() => Promise` — optional                 | Hook called before each interaction is verified.                                                                                                                                                           |
 | `afterEach`                 | `() => Promise` — optional                 | Hook called after each interaction is verified.                                                                                                                                                            |
 | `consumer`                  | `string` — optional                        | Scopes selectors to this consumer only. Omit to verify all consumers.                                                                                                                                      |
+| `consumerBranch`            | `string` — `env.PACT_CONSUMER_BRANCH`      | When set, adds `{ branch: <name> }` to the consumer version selectors. Manual fallback only; see [Verifying a Specific Consumer Branch](#verifying-a-specific-consumer-branch). |
 | `enablePending`             | `boolean` — `false`                        | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending) for when to use this and why a permanent workflow env setting is dangerous. |
 | `requestFilter`             | `RequestFilter` — `noOpRequestFilter`      | Middleware applied to each verification request. See [Request Filter](../request-filter/).                                                                                                                 |
 | `publishVerificationResult` | `boolean` — `true`                         | Publish results back to the Pact Broker.                                                                                                                                                                   |
@@ -73,6 +74,11 @@ The internal `buildConsumerVersionSelectors` function constructs an array of
   coordinated feature development: when both consumer and provider create a
   branch named `feature/new-endpoint`, the consumer pact from that branch is
   verified against the provider on that branch.
+
+**Included when `consumerBranch` is set:**
+
+- `{ branch: "<consumerBranch>" }` -- Verifies pacts from a specific named
+  consumer branch. See [Verifying a specific consumer branch](#verifying-a-specific-consumer-branch).
 
 **Included when `includeMainAndDeployed` is `true`:**
 
@@ -124,6 +130,51 @@ buildVerifierOptions({
 })
 // Selectors: [{ matchingBranch: true }]
 ```
+
+---
+
+## Verifying a Specific Consumer Branch
+
+**Problem:** consumer branch name and provider branch name don't match (e.g.
+provider merges to a weekly `release/week-32` branch before merging to `main`).
+`matchingBranch: true` finds nothing, so the consumer's `can-i-deploy` fails
+until the provider merges to `main`.
+
+**Fix: nothing to change in provider test code, only CI config.**
+
+1. Update `.github/workflows/contract-test-webhook.yml` to the latest version
+   from this repo. The checkout step now falls back to
+   `${pactbroker.providerVersionBranch}` (passed as `GITHUB_BRANCH` in the
+   webhook payload) instead of jumping straight to `main`.
+2. Make sure the provider's CI already runs on the release branch (e.g.
+   `release/week-32`) before the consumer opens its PR. This is what
+   registers that branch in PactFlow as the provider's active version. Normal
+   CI-on-push already does this; no extra step needed.
+3. Consumer opens its PR as usual. Pact Broker's webhook fires with
+   `branch: release/week-32`, the provider workflow checks out that branch,
+   verifies the pact, and the consumer's `can-i-deploy` passes. Nothing to do
+   on the consumer side.
+
+**Alternative, if the webhook isn't wired up yet:** the repo ships a matching
+composite action, `.github/actions/detect-consumer-branch`. It reads a
+`Pact consumer branch: <name>` line from the PR description (same pattern as
+the existing `detect-breaking-change` action for `PACT_BREAKING_CHANGE`) and
+exports `PACT_CONSUMER_BRANCH`. `buildVerifierOptions` reads it automatically
+and adds `{ branch: <name> }` to the selectors.
+
+1. Copy `.github/actions/detect-consumer-branch/` and the `Pact Consumer Branch`
+   section of `.github/PULL_REQUEST_TEMPLATE.md` into the provider repo.
+2. Add a step calling it in the provider verification workflow, right next to
+   `detect-breaking-change`. See `contract-test-provider.yml` for the exact
+   placement.
+3. Fill in the branch name on the provider's PR description when needed;
+   blank it once the consumer's PR has merged.
+
+Requires manual coordination every cycle; prefer the webhook fix above once
+it's in place.
+
+See [handlePactBrokerUrlAndSelectors](./handle-pact-broker-url-and-selectors)
+for how both `PACT_PAYLOAD_URL` and `PACT_CONSUMER_BRANCH` are applied.
 
 ---
 

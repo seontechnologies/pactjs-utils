@@ -1,0 +1,50 @@
+name: 'Detect Pact Consumer Branch'
+description: 'Reads the PR description for a "Pact consumer branch: <name>" line. Sets PACT_CONSUMER_BRANCH env var.'
+
+outputs:
+  consumer_branch:
+    description: 'The consumer branch name found in the PR description, or empty if none.'
+    value: ${{ steps.result.outputs.consumer_branch }}
+
+runs:
+  using: 'composite'
+  steps:
+    # PR event path: read the field directly from the current PR body.
+    - name: Set PACT_CONSUMER_BRANCH from PR description (PR only)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prBody = context.payload.pull_request.body || '';
+          const match = prBody.match(/^\s*Pact consumer branch:\s*(\S+)/im);
+          if (match) {
+            core.exportVariable('PACT_CONSUMER_BRANCH', match[1]);
+            console.log(`PACT_CONSUMER_BRANCH set to ${match[1]} from PR description.`);
+          } else {
+            console.log('No Pact consumer branch line found in PR description.');
+          }
+
+    # Push-to-main path: resolve the merged PR and read the same field.
+    - name: Set PACT_CONSUMER_BRANCH from merged PR (push to main)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+          });
+          const merged = prs.find(pr => pr.merged_at);
+          const match = merged && (merged.body || '').match(/^\s*Pact consumer branch:\s*(\S+)/im);
+          if (match) {
+            core.exportVariable('PACT_CONSUMER_BRANCH', match[1]);
+            console.log(`PACT_CONSUMER_BRANCH set to ${match[1]} from merged PR.`);
+          } else {
+            console.log('No Pact consumer branch line found on the merged PR.');
+          }
+
+    - name: Export result
+      id: result
+      shell: bash
+      run: echo "consumer_branch=${PACT_CONSUMER_BRANCH:-}" >> "$GITHUB_OUTPUT"

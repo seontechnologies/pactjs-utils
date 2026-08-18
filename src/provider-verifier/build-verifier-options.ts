@@ -25,6 +25,7 @@ export function buildVerifierOptions({
   afterEach,
   includeMainAndDeployed,
   consumer,
+  consumerBranch = process.env.PACT_CONSUMER_BRANCH,
   enablePending = false,
   requestFilter = noOpRequestFilter,
   publishVerificationResult = true,
@@ -44,6 +45,7 @@ export function buildVerifierOptions({
   afterEach?: () => Promise<unknown>
   includeMainAndDeployed: boolean
   consumer?: string
+  consumerBranch?: string
   enablePending?: boolean
   requestFilter?: RequestFilter
   publishVerificationResult?: boolean
@@ -62,6 +64,7 @@ export function buildVerifierOptions({
     'State Handlers': stateHandlers ? 'Provided' : 'Not Provided',
     'Include Main and Deployed': includeMainAndDeployed,
     Consumer: consumer || 'All Consumers',
+    'Consumer Branch': consumerBranch || 'Not Set',
     PACT_BREAKING_CHANGE: process.env.PACT_BREAKING_CHANGE,
     PACT_BROKER_TOKEN: pactBrokerToken ? 'Provided' : 'Not Provided',
     'Provider Version': providerVersion,
@@ -107,6 +110,7 @@ export function buildVerifierOptions({
     pactBrokerUrl,
     consumer,
     includeMainAndDeployed,
+    consumerBranch,
     options
   })
 
@@ -123,6 +127,7 @@ export function buildMessageVerifierOptions({
   includeMainAndDeployed,
   stateHandlers,
   consumer,
+  consumerBranch = process.env.PACT_CONSUMER_BRANCH,
   enablePending = false,
   logLevel = 'info',
   publishVerificationResult = true,
@@ -139,6 +144,7 @@ export function buildMessageVerifierOptions({
   includeMainAndDeployed: boolean
   stateHandlers?: StateHandlers & MessageStateHandlers
   consumer?: string
+  consumerBranch?: string
   enablePending?: boolean
   logLevel?: 'trace' | 'debug' | 'info' | 'warn' | 'error'
   publishVerificationResult?: boolean
@@ -156,6 +162,7 @@ export function buildMessageVerifierOptions({
     'State Handlers': stateHandlers ? 'Provided' : 'Not Provided',
     'Include Main and Deployed': includeMainAndDeployed,
     Consumer: consumer || 'All Consumers',
+    'Consumer Branch': consumerBranch || 'Not Set',
     PACT_BROKER_TOKEN: pactBrokerToken ? 'Provided' : 'Not Provided',
     'Provider Version': providerVersion,
     'Provider Version Branch': providerVersionBranch,
@@ -194,6 +201,7 @@ export function buildMessageVerifierOptions({
     pactBrokerUrl,
     consumer,
     includeMainAndDeployed,
+    consumerBranch,
     options
   })
 
