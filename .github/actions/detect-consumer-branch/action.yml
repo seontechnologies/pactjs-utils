@@ -16,17 +16,20 @@ runs:
       with:
         script: |
           const prBody = context.payload.pull_request.body || '';
-          const match = prBody.match(/^\s*Pact consumer branch:\s*(\S+)/im);
-          if (match) {
-            core.exportVariable('PACT_CONSUMER_BRANCH', match[1]);
-            console.log(`PACT_CONSUMER_BRANCH set to ${match[1]} from PR description.`);
+          const match = prBody.match(
+            /^\s*Pact consumer branch:\s*(\S+)[^\S\r\n]*$/im
+          );
+          const consumerBranch = match?.[1] || '';
+          core.exportVariable('PACT_CONSUMER_BRANCH', consumerBranch);
+          if (consumerBranch) {
+            console.log(`PACT_CONSUMER_BRANCH set to ${consumerBranch} from PR description.`);
           } else {
             console.log('No Pact consumer branch line found in PR description.');
           }
 
-    # Push-to-main path: resolve the merged PR and read the same field.
-    - name: Set PACT_CONSUMER_BRANCH from merged PR (push to main)
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Push path: resolve the merged PR and read the same field.
+    - name: Set PACT_CONSUMER_BRANCH from merged PR (push)
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
       uses: actions/github-script@v7
       with:
         script: |
@@ -36,10 +39,13 @@ runs:
             commit_sha: context.sha,
           });
           const merged = prs.find(pr => pr.merged_at);
-          const match = merged && (merged.body || '').match(/^\s*Pact consumer branch:\s*(\S+)/im);
-          if (match) {
-            core.exportVariable('PACT_CONSUMER_BRANCH', match[1]);
-            console.log(`PACT_CONSUMER_BRANCH set to ${match[1]} from merged PR.`);
+          const match = (merged?.body || '').match(
+            /^\s*Pact consumer branch:\s*(\S+)[^\S\r\n]*$/im
+          );
+          const consumerBranch = match?.[1] || '';
+          core.exportVariable('PACT_CONSUMER_BRANCH', consumerBranch);
+          if (consumerBranch) {
+            console.log(`PACT_CONSUMER_BRANCH set to ${consumerBranch} from merged PR.`);
           } else {
             console.log('No Pact consumer branch line found on the merged PR.');
           }

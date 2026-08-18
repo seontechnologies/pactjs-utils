@@ -11,6 +11,12 @@ import {
 } from './handle-url-and-selectors'
 import { noOpRequestFilter } from '../request-filter'
 
+const getProviderVersion = (): string =>
+  process.env.PACT_PROVIDER_VERSION || process.env.GITHUB_SHA || 'unknown'
+
+const getProviderVersionBranch = (): string =>
+  process.env.PACT_PROVIDER_BRANCH || process.env.GITHUB_BRANCH || 'main'
+
 /**
  * Builds a `VerifierOptions` object for Pact HTTP provider verification.
  * Encapsulates common provider test setup including state handlers,
@@ -30,8 +36,8 @@ export function buildVerifierOptions({
   requestFilter = noOpRequestFilter,
   publishVerificationResult = true,
   pactBrokerToken = process.env.PACT_BROKER_TOKEN,
-  providerVersion = process.env.GITHUB_SHA || 'unknown',
-  providerVersionBranch = process.env.GITHUB_BRANCH || 'main',
+  providerVersion = getProviderVersion(),
+  providerVersionBranch = getProviderVersionBranch(),
   providerVersionTags = getProviderVersionTags(),
   pactUrls,
   pactBrokerUrl = process.env.PACT_BROKER_BASE_URL,
@@ -132,8 +138,8 @@ export function buildMessageVerifierOptions({
   logLevel = 'info',
   publishVerificationResult = true,
   pactBrokerToken = process.env.PACT_BROKER_TOKEN,
-  providerVersion = process.env.GITHUB_SHA || 'unknown',
-  providerVersionBranch = process.env.GITHUB_BRANCH || 'main',
+  providerVersion = getProviderVersion(),
+  providerVersionBranch = getProviderVersionBranch(),
   providerVersionTags = getProviderVersionTags(),
   pactUrls,
   pactBrokerUrl = process.env.PACT_BROKER_BASE_URL,

@@ -27,8 +27,8 @@ env:
   PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
   PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
   PACT_PAYLOAD_URL: ${{ github.event.client_payload.pact_url }}
-  GITHUB_SHA: ${{ github.event.client_payload.sha }}
-  GITHUB_BRANCH: ${{ github.event.client_payload.branch }}
+  PACT_PROVIDER_VERSION: ${{ github.event.client_payload.sha }}
+  PACT_PROVIDER_BRANCH: ${{ github.event.client_payload.branch }}
 
 jobs:
   provider-verification:
@@ -67,23 +67,31 @@ jobs:
 
       # Checkout strategy (in priority order):
       #   1. Consumer branch name exists on provider: coordinated breaking-change workflow
-      #   2. GITHUB_BRANCH (${pactbroker.providerVersionBranch}): provider's last registered
-      #      branch in PactFlow, e.g. release/week-32. Non-empty and not main/master only.
+      #   2. PACT_PROVIDER_BRANCH (${pactbroker.providerVersionBranch}): provider's last
+      #      registered branch in PactFlow, e.g. release/week-32.
       #   3. main: absolute fallback
+      # The selected commit is exported so verification results are always published
+      # against the exact provider code that was checked out.
       - name: Checkout provider branch
         env:
           CONSUMER_BRANCH: ${{ steps.pact-info.outputs.consumer_branch }}
         run: |
-          if git ls-remote --heads origin "$CONSUMER_BRANCH" | grep -q "$CONSUMER_BRANCH"; then
+          if git ls-remote --exit-code --heads origin "refs/heads/$CONSUMER_BRANCH" >/dev/null; then
             echo "Checking out consumer-matching provider branch: $CONSUMER_BRANCH"
             git checkout "$CONSUMER_BRANCH"
-          elif [ -n "$GITHUB_BRANCH" ] && [ "$GITHUB_BRANCH" != "main" ] && [ "$GITHUB_BRANCH" != "master" ] && git ls-remote --heads origin "$GITHUB_BRANCH" | grep -q "$GITHUB_BRANCH"; then
-            echo "Checking out provider branch from PactFlow: $GITHUB_BRANCH"
-            git checkout "$GITHUB_BRANCH"
+            SELECTED_PROVIDER_BRANCH="$CONSUMER_BRANCH"
+          elif [ -n "$PACT_PROVIDER_BRANCH" ] && [ -n "$PACT_PROVIDER_VERSION" ] && [ "$PACT_PROVIDER_BRANCH" != "main" ] && [ "$PACT_PROVIDER_BRANCH" != "master" ] && git ls-remote --exit-code --heads origin "refs/heads/$PACT_PROVIDER_BRANCH" >/dev/null; then
+            echo "Checking out provider version $PACT_PROVIDER_VERSION from PactFlow branch: $PACT_PROVIDER_BRANCH"
+            git checkout --detach "$PACT_PROVIDER_VERSION"
+            SELECTED_PROVIDER_BRANCH="$PACT_PROVIDER_BRANCH"
           else
             echo "No matching branch found, falling back to main"
             git checkout main
+            SELECTED_PROVIDER_BRANCH="main"
           fi
+
+          echo "PACT_PROVIDER_VERSION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "PACT_PROVIDER_BRANCH=$SELECTED_PROVIDER_BRANCH" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v6
         with:
