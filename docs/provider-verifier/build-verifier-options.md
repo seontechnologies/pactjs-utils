@@ -33,7 +33,7 @@ const options = buildVerifierOptions({
 | `beforeEach`                | `() => Promise` — optional                                                | Hook called before each interaction is verified.                                                                                                                                                           |
 | `afterEach`                 | `() => Promise` — optional                                                | Hook called after each interaction is verified.                                                                                                                                                            |
 | `consumer`                  | `string` — optional                                                       | Scopes selectors to this consumer only. Omit to verify all consumers.                                                                                                                                      |
-| `consumerBranch`            | `string` — `env.PACT_CONSUMER_BRANCH`                                     | When set, adds `{ branch: <name> }` to the consumer version selectors. Manual fallback only; see [Verifying a Specific Consumer Branch](#verifying-a-specific-consumer-branch).                            |
+| `consumerBranch`            | `string` — `env.PACT_CONSUMER_BRANCH`                                     | When set, adds `{ branch: <name> }` to the consumer version selectors. Requires `consumer` to also be set (throws otherwise). Manual fallback only; see [Verifying a Specific Consumer Branch](#verifying-a-specific-consumer-branch). |
 | `enablePending`             | `boolean` — `false`                                                       | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending) for when to use this and why a permanent workflow env setting is dangerous. |
 | `requestFilter`             | `RequestFilter` — `noOpRequestFilter`                                     | Middleware applied to each verification request. See [Request Filter](../request-filter/).                                                                                                                 |
 | `publishVerificationResult` | `boolean` — `true`                                                        | Publish results back to the Pact Broker.                                                                                                                                                                   |
@@ -75,10 +75,11 @@ The internal `buildConsumerVersionSelectors` function constructs an array of
   branch named `feature/new-endpoint`, the consumer pact from that branch is
   verified against the provider on that branch.
 
-**Included when `consumerBranch` is set:**
+**Included when `consumerBranch` is set (requires `consumer` too):**
 
-- `{ branch: "<consumerBranch>" }` -- Verifies pacts from a specific named
-  consumer branch. See [Verifying a specific consumer branch](#verifying-a-specific-consumer-branch).
+- `{ consumer: "<consumer>", branch: "<consumerBranch>" }` -- Verifies pacts
+  from a specific named consumer branch, scoped to that one consumer. See
+  [Verifying a specific consumer branch](#verifying-a-specific-consumer-branch).
 
 **Included when `includeMainAndDeployed` is `true`:**
 
@@ -167,8 +168,13 @@ and adds `{ branch: <name> }` to the selectors.
 2. Add a step calling it in the provider verification workflow, right next to
    `detect-breaking-change`. See `contract-test-provider.yml` for the exact
    placement.
-3. Fill in the branch name on the provider's PR description when needed;
-   blank it once the consumer's PR has merged.
+3. Fill in the branch name on the provider's PR description when needed. The
+   field is only read from the open PR, never from the merged commit on
+   `push`, so there's nothing to blank out afterward.
+4. `consumerBranch` requires `consumer` to also be set (an unscoped
+   `{ branch: <name> }` selector would match that branch name across every
+   consumer of the provider); `buildVerifierOptions`/`buildMessageVerifierOptions`
+   throw if `consumerBranch` is set without `consumer`.
 
 Requires manual coordination every cycle; prefer the webhook fix above once
 it's in place.

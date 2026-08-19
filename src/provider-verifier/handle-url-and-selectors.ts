@@ -210,6 +210,13 @@ function usePactBrokerUrlAndSelectors({
     throw new Error('PACT_BROKER_BASE_URL is required but not set.')
   }
 
+  if (consumerBranch && !consumer) {
+    throw new Error(
+      'consumerBranch requires consumer to be set: an unscoped { branch } selector ' +
+        'would match that branch name across every consumer of this provider.'
+    )
+  }
+
   console.log(`Using Pact Broker Base URL: ${pactBrokerUrl}`)
 
   options.pactBrokerUrl = pactBrokerUrl

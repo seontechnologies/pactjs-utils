@@ -84,6 +84,20 @@ describe('buildVerifierOptions', () => {
     )
   })
 
+  it('falls back to GITHUB_SHA and GITHUB_BRANCH when PACT_PROVIDER_* is unset', () => {
+    process.env.GITHUB_SHA = 'abc123'
+    process.env.GITHUB_BRANCH = 'feature/test'
+
+    const options = buildVerifierOptions({
+      provider: 'SampleMoviesAPI',
+      port: '3001',
+      includeMainAndDeployed: true
+    })
+
+    expect(options.providerVersion).toBe('abc123')
+    expect(options.providerVersionBranch).toBe('feature/test')
+  })
+
   it('accepts custom requestFilter', () => {
     const customFilter = vi.fn()
 

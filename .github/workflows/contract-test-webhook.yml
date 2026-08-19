@@ -68,11 +68,23 @@ jobs:
       # Checkout strategy (in priority order):
       #   1. Consumer branch name exists on provider: coordinated breaking-change workflow
       #   2. PACT_PROVIDER_BRANCH (${pactbroker.providerVersionBranch}): provider's last
-      #      registered branch in PactFlow, e.g. release/week-32.
+      #      registered branch in PactFlow, e.g. release/week-32. Skipped if that exact
+      #      commit no longer exists on the branch (force-push, history rewrite).
       #   3. main: absolute fallback
-      # The selected commit is exported so verification results are always published
-      # against the exact provider code that was checked out.
+      #
+      # The selected commit becomes PACT_PROVIDER_VERSION (not the PactFlow-requested
+      # client_payload.sha), so verification results are published against the code
+      # that actually ran. Trade-off: when this falls through to main, PactFlow's
+      # originally-requested provider version never receives a result and the webhook
+      # event keeps re-firing for it; the consumer's can-i-deploy against that specific
+      # version stays unknown rather than passing or failing outright.
+      #
+      # The resolved version/branch are exported both via $GITHUB_ENV (for steps that
+      # read process.env directly, e.g. getProviderVersionTags and the pacttest files'
+      # breaking-change gate) and as step outputs (for the verification steps below,
+      # which take them explicitly to avoid relying on $GITHUB_ENV step-ordering).
       - name: Checkout provider branch
+        id: checkout-provider
         env:
           CONSUMER_BRANCH: ${{ steps.pact-info.outputs.consumer_branch }}
         run: |
@@ -80,7 +92,7 @@ jobs:
             echo "Checking out consumer-matching provider branch: $CONSUMER_BRANCH"
             git checkout "$CONSUMER_BRANCH"
             SELECTED_PROVIDER_BRANCH="$CONSUMER_BRANCH"
-          elif [ -n "$PACT_PROVIDER_BRANCH" ] && [ -n "$PACT_PROVIDER_VERSION" ] && [ "$PACT_PROVIDER_BRANCH" != "main" ] && [ "$PACT_PROVIDER_BRANCH" != "master" ] && git ls-remote --exit-code --heads origin "refs/heads/$PACT_PROVIDER_BRANCH" >/dev/null; then
+          elif [ -n "$PACT_PROVIDER_BRANCH" ] && [ -n "$PACT_PROVIDER_VERSION" ] && [ "$PACT_PROVIDER_BRANCH" != "main" ] && [ "$PACT_PROVIDER_BRANCH" != "master" ] && git ls-remote --exit-code --heads origin "refs/heads/$PACT_PROVIDER_BRANCH" >/dev/null && git rev-parse --verify --quiet "$PACT_PROVIDER_VERSION^{commit}" >/dev/null; then
             echo "Checking out provider version $PACT_PROVIDER_VERSION from PactFlow branch: $PACT_PROVIDER_BRANCH"
             git checkout --detach "$PACT_PROVIDER_VERSION"
             SELECTED_PROVIDER_BRANCH="$PACT_PROVIDER_BRANCH"
@@ -90,8 +102,13 @@ jobs:
             SELECTED_PROVIDER_BRANCH="main"
           fi
 
-          echo "PACT_PROVIDER_VERSION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          SELECTED_PROVIDER_VERSION="$(git rev-parse HEAD)"
+
+          echo "PACT_PROVIDER_VERSION=$SELECTED_PROVIDER_VERSION" >> "$GITHUB_ENV"
           echo "PACT_PROVIDER_BRANCH=$SELECTED_PROVIDER_BRANCH" >> "$GITHUB_ENV"
+          echo "GITHUB_BRANCH=$SELECTED_PROVIDER_BRANCH" >> "$GITHUB_ENV"
+          echo "version=$SELECTED_PROVIDER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "branch=$SELECTED_PROVIDER_BRANCH" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v6
         with:
@@ -114,6 +131,9 @@ jobs:
         run: npm run test:pact:provider:remote:contract
         env:
           PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
+          PACT_PROVIDER_VERSION: ${{ steps.checkout-provider.outputs.version }}
+          PACT_PROVIDER_BRANCH: ${{ steps.checkout-provider.outputs.branch }}
+          GITHUB_BRANCH: ${{ steps.checkout-provider.outputs.branch }}
 
       - name: Run provider message queue verification
         id: provider-verify-message
@@ -121,6 +141,9 @@ jobs:
         run: npm run test:pact:provider:remote:message
         env:
           PACT_BREAKING_CHANGE: ${{ env.PACT_BREAKING_CHANGE }}
+          PACT_PROVIDER_VERSION: ${{ steps.checkout-provider.outputs.version }}
+          PACT_PROVIDER_BRANCH: ${{ steps.checkout-provider.outputs.branch }}
+          GITHUB_BRANCH: ${{ steps.checkout-provider.outputs.branch }}
 
       - name: Pact report and comment (HTTP)
         if: always()

@@ -108,27 +108,22 @@ describe('handlePactBrokerUrlAndSelectors', () => {
     ])
   })
 
-  it('adds a branch selector when consumerBranch is specified', () => {
+  it('throws when consumerBranch is specified without a consumer', () => {
     const options: VerifierOptions = {
       provider: 'SampleMoviesAPI',
       providerBaseUrl: 'http://localhost:3001'
     }
     const consumerBranch = 'feature/mcp-new-thing'
 
-    handlePactBrokerUrlAndSelectors({
-      pactBrokerUrl: 'https://broker.example.com',
-      consumer: undefined,
-      includeMainAndDeployed: true,
-      consumerBranch,
-      options
-    })
-
-    expect(options.consumerVersionSelectors).toEqual([
-      { matchingBranch: true },
-      { branch: consumerBranch },
-      { mainBranch: true },
-      { deployedOrReleased: true }
-    ])
+    expect(() =>
+      handlePactBrokerUrlAndSelectors({
+        pactBrokerUrl: 'https://broker.example.com',
+        consumer: undefined,
+        includeMainAndDeployed: true,
+        consumerBranch,
+        options
+      })
+    ).toThrow('consumerBranch requires consumer to be set')
   })
 
   it('adds a branch selector with consumer filter when both are specified', () => {
