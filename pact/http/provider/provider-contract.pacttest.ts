@@ -4,7 +4,10 @@ import path from 'path'
 import { stateHandlers } from '../helpers/state-handlers'
 import { generateAuthToken, pactAdminIdentity } from '../helpers/pact-helpers'
 import { createRequestFilter } from '../../../src/request-filter'
-import { buildVerifierOptions } from '../../../src/provider-verifier'
+import {
+  buildVerifierOptions,
+  isBreakingChangeTolerantBranch
+} from '../../../src/provider-verifier'
 import { truncateTables } from '../../../sample-app/backend/scripts/truncate-tables'
 
 // The server is started externally via start-server-and-test (see package.json).
@@ -71,11 +74,27 @@ describe('Provider contract verification', () => {
       const output = await verifier.verifyProvider()
       console.log('Pact Verification Complete!', output)
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const lowerMessage = message.toLowerCase()
+
+      if (
+        lowerMessage.includes('no pacts found') ||
+        lowerMessage.includes('no pacts were found')
+      ) {
+        console.log(
+          'No pacts found in broker — skipping. Publish a consumer pact to enable this test.'
+        )
+        return
+      }
+
       console.error('Pact Verification Failed:', error)
 
-      if (PACT_BREAKING_CHANGE === 'true' && GITHUB_BRANCH === 'main') {
+      if (
+        PACT_BREAKING_CHANGE === 'true' &&
+        isBreakingChangeTolerantBranch(GITHUB_BRANCH)
+      ) {
         console.log(
-          'Ignoring verification failures due to breaking change on main branch.'
+          'Ignoring verification failures due to breaking change on a deployable/release branch.'
         )
       } else {
         throw error

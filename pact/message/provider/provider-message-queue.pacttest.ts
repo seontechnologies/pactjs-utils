@@ -4,7 +4,10 @@ import path from 'path'
 import { vi, describe, it, beforeAll, afterAll } from 'vitest'
 import { messageProviders } from '../helpers/message-providers'
 import { stateHandlers } from '../helpers/state-handlers'
-import { buildMessageVerifierOptions } from '../../../src/provider-verifier'
+import {
+  buildMessageVerifierOptions,
+  isBreakingChangeTolerantBranch
+} from '../../../src/provider-verifier'
 
 // Message provider verification validates that the provider can produce
 // messages matching the consumer's expectations.
@@ -75,9 +78,12 @@ describe('Pact Verification for Message queue', () => {
 
       console.error('Pact Message Verification Failed:', error)
 
-      if (PACT_BREAKING_CHANGE === 'true' && GITHUB_BRANCH === 'main') {
+      if (
+        PACT_BREAKING_CHANGE === 'true' &&
+        isBreakingChangeTolerantBranch(GITHUB_BRANCH)
+      ) {
         console.log(
-          'Ignoring Pact Message verification failures due to breaking change on main branch.'
+          'Ignoring Pact Message verification failures due to breaking change on a deployable/release branch.'
         )
       } else {
         throw error

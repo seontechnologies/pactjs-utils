@@ -59,7 +59,7 @@
     "test:pact:provider:remote": "npm run test:pact:provider:remote:contract && npm run test:pact:provider:remote:message",
     "test:pact:provider:remote:contract": ". ./scripts/env-setup.sh && start-server-and-test start:pact-server http://localhost:3001 'vitest run --config pact/http/vitest.provider.config.mts'",
     "test:pact:provider:remote:message": ". ./scripts/env-setup.sh && vitest run --config pact/message/vitest.provider.config.mts",
-    "can:i:deploy:consumer": ". ./scripts/env-setup.sh && PACTICIPANT=SampleAppConsumer ./scripts/can-i-deploy.sh",
+    "can:i:deploy:consumer": ". ./scripts/env-setup.sh && PACTICIPANT=SampleAppConsumer PROVIDER_PACTICIPANT=SampleMoviesAPI ./scripts/can-i-deploy.sh",
     "can:i:deploy:provider": ". ./scripts/env-setup.sh && PACTICIPANT=SampleMoviesAPI ./scripts/can-i-deploy.sh",
     "record:consumer:deployment": ". ./scripts/env-setup.sh && PACTICIPANT=SampleAppConsumer ./scripts/record-deployment.sh",
     "record:provider:deployment": ". ./scripts/env-setup.sh && PACTICIPANT=SampleMoviesAPI ./scripts/record-deployment.sh",

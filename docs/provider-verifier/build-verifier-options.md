@@ -147,10 +147,14 @@ until the provider merges to `main`.
    from this repo. The checkout step now falls back to
    `${pactbroker.providerVersionBranch}` (passed as `PACT_PROVIDER_BRANCH` in the
    webhook payload) instead of jumping straight to `main`.
-2. Make sure the provider's CI already runs on the release branch (e.g.
-   `release/week-32`) before the consumer opens its PR. This is what
-   registers that branch in PactFlow as the provider's active version. Normal
-   CI-on-push already does this; no extra step needed.
+2. Make sure the provider has a version currently deployed or released to an
+   environment on the release branch (e.g. `release/week-32`), not merely a
+   CI run on it -- a CI run alone registers a version in PactFlow but the
+   provider-version-selection webhook payload (`${pactbroker.providerVersionBranch}`)
+   reflects branches with a recorded deployment/release. Check whether
+   `record-deployment`/your release pipeline already tags that branch; if it
+   only ever runs on `main`, this precondition isn't met yet and step 3 below
+   won't have anything to find.
 3. Consumer opens its PR as usual. Pact Broker's webhook fires with
    `branch: release/week-32`, the provider workflow checks out that branch,
    verifies the pact, and the consumer's `can-i-deploy` passes. Nothing to do

@@ -4,5 +4,6 @@ export {
 } from './build-verifier-options'
 export {
   handlePactBrokerUrlAndSelectors,
-  getProviderVersionTags
+  getProviderVersionTags,
+  isBreakingChangeTolerantBranch
 } from './handle-url-and-selectors'

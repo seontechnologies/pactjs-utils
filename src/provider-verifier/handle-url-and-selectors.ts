@@ -70,7 +70,7 @@ export function getProviderVersionTags(): string[] {
     return tags
   }
 
-  const branch = process.env.GITHUB_BRANCH
+  const branch = process.env.PACT_PROVIDER_BRANCH || process.env.GITHUB_BRANCH
   const isBreakingChange = process.env.PACT_BREAKING_CHANGE === 'true'
   const isDeployableBranch = branch === 'master' || branch === 'main'
 
@@ -88,6 +88,23 @@ export function getProviderVersionTags(): string[] {
 
   console.log('providerVersionTags:', tags)
   return tags
+}
+
+/**
+ * Branches on which a Pact-breaking-change verification failure should be
+ * swallowed instead of failing the build: `main`/`master` and any
+ * `release/**` branch (short-lived release branches get the same tolerance
+ * as main while a coordinated breaking change is in flight).
+ *
+ * Deliberately separate from the `isDeployableBranch` check inside
+ * `getProviderVersionTags`: that one gates the `'dev'` tag and must stay
+ * `main`/`master`-only, since tagging a release-branch verification as
+ * `'dev'` would poison every consumer's `can-i-deploy --to-environment dev`.
+ */
+export function isBreakingChangeTolerantBranch(branch: string): boolean {
+  return (
+    branch === 'main' || branch === 'master' || branch.startsWith('release/')
+  )
 }
 
 /**

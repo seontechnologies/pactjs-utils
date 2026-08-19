@@ -1,0 +1,43 @@
+name: 'Detect Pact Provider Branch'
+description: 'Reads the PR description for a "Pact provider branch: <name>" line. Sets PACT_PROVIDER_BRANCH env var.'
+
+outputs:
+  provider_branch:
+    description: 'The provider branch name found in the PR description, or empty if none.'
+    value: ${{ steps.result.outputs.provider_branch }}
+
+runs:
+  using: 'composite'
+  steps:
+    # PR event only: this is a short-lived coordination hint for the consumer's
+    # own can-i-deploy check, not a persistent setting. Like detect-consumer-branch,
+    # intentionally not re-read from the merged PR on push: once the provider's
+    # release branch has merged to main, normal `--to-environment` verification
+    # covers it and there's nothing left to blank out.
+    #
+    # Exports PACT_PROVIDER_BRANCH — the same variable name the webhook checkout
+    # flow (contract-test-webhook.yml) and getProviderVersionBranch/getProviderVersionTags
+    # already read. Same meaning both places ("the provider branch to check
+    # against"), and the two never run in the same job, so reusing the name is
+    # correct rather than confusing.
+    - name: Set PACT_PROVIDER_BRANCH from PR description (PR only)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prBody = context.payload.pull_request.body || '';
+          const match = prBody.match(
+            /^[^\S\r\n]*Pact provider branch:[^\S\r\n]*(\S+)[^\S\r\n]*$/im
+          );
+          const providerBranch = match?.[1] || '';
+          core.exportVariable('PACT_PROVIDER_BRANCH', providerBranch);
+          if (providerBranch) {
+            console.log(`PACT_PROVIDER_BRANCH set to ${providerBranch} from PR description.`);
+          } else {
+            console.log('No Pact provider branch line found in PR description.');
+          }
+
+    - name: Export result
+      id: result
+      shell: bash
+      run: echo "provider_branch=${PACT_PROVIDER_BRANCH:-}" >> "$GITHUB_OUTPUT"

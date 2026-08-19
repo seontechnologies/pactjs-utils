@@ -479,6 +479,37 @@ deployment is blocked.
 This is a hard gate in CI. It runs after tests pass and before the actual
 deployment step.
 
+### Verifying against a specific provider branch (consumer side)
+
+The webhook/`detect-consumer-branch` mechanisms above solve one half of a
+short-lived branch mismatch: getting the *provider* to verify against a
+release branch before it merges to `main`. They don't solve the other half:
+the *consumer's own* `can-i-deploy` gate still only asks
+`--to-environment <env>`, which resolves to whichever version is currently
+deployed -- typically old `main` -- not the provider's release-branch tip. The
+verification result gets published, but the consumer's gate never looks at it.
+
+`scripts/can-i-deploy.sh` supports an additive, PR-only check for this: when
+`PACT_PROVIDER_BRANCH` is set (via the `detect-provider-branch` composite
+action reading a `Pact provider branch: <name>` line from the PR
+description -- same pattern as `detect-consumer-branch`) and
+`PROVIDER_PACTICIPANT` is configured, it runs a second `can-i-deploy` call
+scoped to that branch's tip, alongside the normal `--to-environment` check:
+
+```bash
+pact-broker can-i-deploy \
+    --pacticipant SampleAppConsumer --version="$GITHUB_SHA" \
+    --pacticipant SampleMoviesAPI --branch="$PACT_PROVIDER_BRANCH" \
+    --retry-while-unknown=10 --retry-interval=30
+```
+
+This is deliberately additive, never a replacement: `--branch` proves
+compatibility with the tip of a branch, which is weaker than proving
+compatibility with what's actually running. `--to-environment` stays
+unconditional; the branch check only supplements it on PR builds where the
+override is present, and is gone once the provider merges and the PR
+description field is blanked.
+
 ### record-deployment after successful deploy
 
 Once a service is successfully deployed to an environment, run
