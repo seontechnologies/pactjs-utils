@@ -1,7 +1,6 @@
 import { MessageProviderPact } from '@pact-foundation/pact'
 import type { PactMessageProviderOptions } from '@pact-foundation/pact'
 import path from 'path'
-import { vi, describe, it, beforeAll, afterAll } from 'vitest'
 import { messageProviders } from '../helpers/message-providers'
 import { stateHandlers } from '../helpers/state-handlers'
 import {
