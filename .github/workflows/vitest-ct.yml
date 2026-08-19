@@ -56,9 +56,22 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
 
-      # System deps can't be cached (OS-level packages), always needed
+      # System deps can't be cached (OS-level packages), always needed.
+      # apt-get update against the azure.archive.ubuntu.com mirror occasionally
+      # stalls indefinitely instead of failing, silently eating the whole job's
+      # timeout-minutes (shows up as "cancelled", not a clean failure). Bound
+      # each attempt and retry so a stalled mirror fails fast instead.
       - name: Install Playwright system dependencies
-        run: npx playwright install-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 120 npx playwright install-deps chromium; then
+              exit 0
+            fi
+            echo "Attempt $attempt timed out or failed, retrying..."
+            sleep 10
+          done
+          echo "::error::playwright install-deps failed after 3 attempts"
+          exit 1
 
       - name: Run Vitest
         run: npm run test:frontend
