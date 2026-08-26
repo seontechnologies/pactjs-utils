@@ -493,10 +493,16 @@ verification result gets published, but the consumer's gate never looks at it.
 `PACT_PROVIDER_BRANCH` is set (via the `detect-provider-branch` composite
 action reading a `Pact provider branch: <name>` line from the PR
 description -- same pattern as `detect-consumer-branch`) and
-`PROVIDER_PACTICIPANT` is configured, it runs a second `can-i-deploy` call
-scoped to that branch's tip, alongside the normal `--to-environment` check:
+`PROVIDER_PACTICIPANT` is configured, the environment check excludes that one
+provider with `--ignore`, and a second call checks it separately against its
+branch tip:
 
 ```bash
+pact-broker can-i-deploy \
+    --pacticipant SampleAppConsumer --version="$GITHUB_SHA" \
+    --to-environment dev --ignore SampleMoviesAPI \
+    --retry-while-unknown=10 --retry-interval=30
+
 pact-broker can-i-deploy \
     --pacticipant SampleAppConsumer --version="$GITHUB_SHA" \
     --pacticipant SampleMoviesAPI --branch="$PACT_PROVIDER_BRANCH" \
@@ -504,27 +510,19 @@ pact-broker can-i-deploy \
 ```
 
 `--branch` proves compatibility with the tip of a branch, which is weaker
-than proving compatibility with what's actually running -- but that's the
-deliberate tradeoff here, not an incidental one. The whole point of the
-override is that `--to-environment` is *expected* to fail during the
-in-flight window (the provider hasn't deployed its release branch to the
-target environment yet), so on a PR build where the override is active, the
-script substitutes the weaker branch check for the failing environment
-check rather than merely adding to it: it captures the `--to-environment`
-exit status instead of letting it abort the script, and exits `0` once the
-branch check passes.
+than proving compatibility with what's actually running. That's fine here
+because `--ignore` scopes the weaker check to exactly the one provider
+known to be in flight: the environment check still runs unconditionally,
+and still fails hard, for every *other* dependency `SampleAppConsumer` has.
+Neither call needs to swallow the other's failure -- both run under the
+script's normal `set -e`, so a real failure anywhere still aborts the build.
 
-That substitution is bounded by design, not open-ended:
-
-- `detect-provider-branch` only exports `PACT_PROVIDER_BRANCH` on
-  `pull_request`, never on push.
-- `record-deployment` -- what makes `--to-environment` start passing for
-  real -- only runs on push-to-main in `contract-test-consumer.yml`.
-
-So PR builds get the substitution; the push-to-main path that actually
-records a deployment never has the override set, and always runs the
-unconditional `--to-environment` gate on its own. The override is gone once
-the provider merges and the PR description field is blanked.
+The override itself is bounded, not open-ended: `detect-provider-branch`
+only exports `PACT_PROVIDER_BRANCH` on `pull_request`, never on push, so
+the push-to-main path -- the one that actually calls `record-deployment` --
+never has it set and always runs the plain, unscoped `--to-environment`
+check. The override is gone once the provider merges and the PR description
+field is blanked.
 
 ### record-deployment after successful deploy
 

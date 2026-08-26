@@ -196,6 +196,12 @@ describe('getProviderVersionTags', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv }
+    // Cleared explicitly: getProviderVersionTags now reads this before
+    // GITHUB_BRANCH, so a value leaking in from the ambient shell (e.g. a
+    // developer with PACT_PROVIDER_BRANCH set from a previous script in the
+    // same terminal) would silently override every test below that only
+    // sets/deletes GITHUB_BRANCH.
+    delete process.env.PACT_PROVIDER_BRANCH
   })
 
   afterEach(async () => {

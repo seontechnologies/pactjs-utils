@@ -76,6 +76,9 @@ describe('Provider contract verification', () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const lowerMessage = message.toLowerCase()
+      const noPactsFound =
+        lowerMessage.includes('no pacts found') ||
+        lowerMessage.includes('no pacts were found')
 
       // Only tolerate "no pacts found" as an empty-broker bootstrap state
       // when no explicit consumer branch was requested. PACT_CONSUMER_BRANCH
@@ -83,11 +86,7 @@ describe('Provider contract verification', () => {
       // resolves to a { consumer, branch } selector that matches nothing,
       // and treating that as "OK, nothing to verify" would pass the build
       // green while claiming a cross-branch verification that never ran.
-      if (
-        !process.env.PACT_CONSUMER_BRANCH &&
-        (lowerMessage.includes('no pacts found') ||
-          lowerMessage.includes('no pacts were found'))
-      ) {
+      if (noPactsFound && !process.env.PACT_CONSUMER_BRANCH) {
         console.log(
           'No pacts found in broker — skipping. Publish a consumer pact to enable this test.'
         )
@@ -95,6 +94,15 @@ describe('Provider contract verification', () => {
       }
 
       console.error('Pact Verification Failed:', error)
+
+      // Checked ahead of the breaking-change tolerance below: that check
+      // swallows any verification failure once PACT_BREAKING_CHANGE is set,
+      // which would otherwise re-swallow the exact typo case rejected above
+      // whenever a breaking change also happens to be in flight — the same
+      // false-green Gellert flagged, just reached through the other branch.
+      if (noPactsFound && process.env.PACT_CONSUMER_BRANCH) {
+        throw error
+      }
 
       if (
         PACT_BREAKING_CHANGE === 'true' &&
