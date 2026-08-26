@@ -77,9 +77,16 @@ describe('Provider contract verification', () => {
       const message = error instanceof Error ? error.message : String(error)
       const lowerMessage = message.toLowerCase()
 
+      // Only tolerate "no pacts found" as an empty-broker bootstrap state
+      // when no explicit consumer branch was requested. PACT_CONSUMER_BRANCH
+      // comes from a hand-typed PR description line — a typo silently
+      // resolves to a { consumer, branch } selector that matches nothing,
+      // and treating that as "OK, nothing to verify" would pass the build
+      // green while claiming a cross-branch verification that never ran.
       if (
-        lowerMessage.includes('no pacts found') ||
-        lowerMessage.includes('no pacts were found')
+        !process.env.PACT_CONSUMER_BRANCH &&
+        (lowerMessage.includes('no pacts found') ||
+          lowerMessage.includes('no pacts were found'))
       ) {
         console.log(
           'No pacts found in broker — skipping. Publish a consumer pact to enable this test.'

@@ -503,12 +503,28 @@ pact-broker can-i-deploy \
     --retry-while-unknown=10 --retry-interval=30
 ```
 
-This is deliberately additive, never a replacement: `--branch` proves
-compatibility with the tip of a branch, which is weaker than proving
-compatibility with what's actually running. `--to-environment` stays
-unconditional; the branch check only supplements it on PR builds where the
-override is present, and is gone once the provider merges and the PR
-description field is blanked.
+`--branch` proves compatibility with the tip of a branch, which is weaker
+than proving compatibility with what's actually running -- but that's the
+deliberate tradeoff here, not an incidental one. The whole point of the
+override is that `--to-environment` is *expected* to fail during the
+in-flight window (the provider hasn't deployed its release branch to the
+target environment yet), so on a PR build where the override is active, the
+script substitutes the weaker branch check for the failing environment
+check rather than merely adding to it: it captures the `--to-environment`
+exit status instead of letting it abort the script, and exits `0` once the
+branch check passes.
+
+That substitution is bounded by design, not open-ended:
+
+- `detect-provider-branch` only exports `PACT_PROVIDER_BRANCH` on
+  `pull_request`, never on push.
+- `record-deployment` -- what makes `--to-environment` start passing for
+  real -- only runs on push-to-main in `contract-test-consumer.yml`.
+
+So PR builds get the substitution; the push-to-main path that actually
+records a deployment never has the override set, and always runs the
+unconditional `--to-environment` gate on its own. The override is gone once
+the provider merges and the PR description field is blanked.
 
 ### record-deployment after successful deploy
 

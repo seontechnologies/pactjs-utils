@@ -65,9 +65,13 @@ describe('Pact Verification for Message queue', () => {
       const message = error instanceof Error ? error.message : String(error)
       const lowerMessage = message.toLowerCase()
 
+      // Only tolerate "no pacts found" as an empty-broker bootstrap state
+      // when no explicit consumer branch was requested — see the HTTP
+      // pacttest's identical guard for the typo-silently-passes rationale.
       if (
-        lowerMessage.includes('no pacts found') ||
-        lowerMessage.includes('no pacts were found')
+        !process.env.PACT_CONSUMER_BRANCH &&
+        (lowerMessage.includes('no pacts found') ||
+          lowerMessage.includes('no pacts were found'))
       ) {
         console.log(
           'No message pacts found in broker — skipping. Publish a message consumer pact to enable this test.'

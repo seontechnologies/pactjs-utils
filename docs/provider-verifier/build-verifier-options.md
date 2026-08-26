@@ -156,9 +156,13 @@ until the provider merges to `main`.
    only ever runs on `main`, this precondition isn't met yet and step 3 below
    won't have anything to find.
 3. Consumer opens its PR as usual. Pact Broker's webhook fires with
-   `branch: release/week-32`, the provider workflow checks out that branch,
-   verifies the pact, and the consumer's `can-i-deploy` passes. Nothing to do
-   on the consumer side.
+   `branch: release/week-32`, the provider workflow checks out that branch
+   and verifies the pact. That alone does **not** make the consumer's own
+   `can-i-deploy --to-environment` gate pass -- that gate checks compatibility
+   against whatever provider version is actually deployed to the target
+   environment, which is still old `main` until the release branch ships. See
+   [Verifying against a specific provider branch (consumer side)](../concepts#verifying-against-a-specific-provider-branch-consumer-side)
+   for the consumer-side half of this.
 
 **Alternative, if the webhook isn't wired up yet:** the repo ships a matching
 composite action, `.github/actions/detect-consumer-branch`. It reads a
