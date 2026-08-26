@@ -1,44 +1,35 @@
-# Event-driven gate: recomputes the verdict on each CI completion event and
-# publishes it as the `gate` commit status, the ONE required check in the ruleset.
-# Uses pr-gate in watch mode, replacing kachick/wait-other-jobs. Seconds per
-# event instead of holding a runner for the length of the slowest job.
+# Wait mode for now, not watch mode. Watch mode's workflow_run trigger only
+# fires for a workflow file that already exists on the default branch (the
+# pr-gate action's own README: "Fires only once this file is on the default
+# branch, so merge it before requiring gate"). This PR is what introduces
+# the file, so on this branch workflow_run can never fire -- confirmed live:
+# the one pull_request-triggered watch run took a snapshot while other jobs
+# were still in progress, published `gate: pending`, and had no way to ever
+# recompute, permanently blocking this PR.
 #
-# A status rather than a check run because an API-created check run cannot pick
-# its check suite, so the PR page labelled the gate with whichever unrelated
-# workflow opened the first suite on the commit.
+# Wait mode needs nothing merged first: one job blocks until every other job
+# on the commit finishes, then passes or fails with them -- same mechanism
+# the old kachick/wait-other-jobs setup used, same author's action. Once
+# this merges to main, a follow-up PR can switch to watch mode (copy the
+# couture-cast config verbatim) so future feature branches get the
+# seconds-per-event version instead of holding a runner for the whole build.
 name: PR Gate
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_run:
-    types: [completed]
-    workflows: ['**'] # every workflow; an omitted list disables the trigger
-  # workflow_run cannot fire for a file that is not yet on the default branch,
-  # so pull_request exercises the gate on this branch before it is merged.
-
-# Serializes per commit so two events cannot race the same status context.
-# cancel-in-progress would drop a terminal verdict and leave the PR pending.
-concurrency:
-  group: pr-gate-${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha }}
-  cancel-in-progress: false
+  push:
+    branches: [main]
 
 jobs:
-  watch:
-    name: watch
+  gate:
+    name: gate
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # Do not re-trigger on your own completion. workflow_run fires for this
-    # workflow too, and GitHub chains it three levels deep before stopping.
-    if: github.event.workflow_run.path != '.github/workflows/pr-gate.yml'
+    timeout-minutes: 45
     permissions:
       contents: read
       checks: read
-      statuses: write
       actions: read
     steps:
       - uses: muratkeremozcan/pr-gate@main
         with:
-          mode: watch
-          publish: status
-#
+          mode: wait
