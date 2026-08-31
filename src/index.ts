@@ -10,7 +10,8 @@ export {
   buildVerifierOptions,
   buildMessageVerifierOptions,
   handlePactBrokerUrlAndSelectors,
-  getProviderVersionTags
+  getProviderVersionTags,
+  isBreakingChangeTolerantBranch
 } from './provider-verifier'
 export type {
   StateHandlers,

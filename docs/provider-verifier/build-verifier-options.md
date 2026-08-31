@@ -23,26 +23,27 @@ const options = buildVerifierOptions({
 
 ## Parameters
 
-| Name                        | Type / Default                             | What it does                                                                                                                                                                                               |
-| --------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider`                  | `string` — **required**                    | Provider name; must match consumer pact definitions.                                                                                                                                                       |
-| `port`                      | `string` — **required**                    | Local port. Builds `providerBaseUrl` as `http://localhost:{port}`.                                                                                                                                         |
-| `includeMainAndDeployed`    | `boolean` — **required**                   | When `true`, selectors include `mainBranch` + `deployedOrReleased`. Set `false` during breaking changes.                                                                                                   |
-| `logLevel`                  | `string` — `'info'`                        | Pact verification log verbosity (`'trace'` through `'error'`).                                                                                                                                             |
-| `stateHandlers`             | `StateHandlers` — optional                 | Provider state setup/teardown functions keyed by state description string.                                                                                                                                 |
-| `beforeEach`                | `() => Promise` — optional                 | Hook called before each interaction is verified.                                                                                                                                                           |
-| `afterEach`                 | `() => Promise` — optional                 | Hook called after each interaction is verified.                                                                                                                                                            |
-| `consumer`                  | `string` — optional                        | Scopes selectors to this consumer only. Omit to verify all consumers.                                                                                                                                      |
-| `enablePending`             | `boolean` — `false`                        | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending) for when to use this and why a permanent workflow env setting is dangerous. |
-| `requestFilter`             | `RequestFilter` — `noOpRequestFilter`      | Middleware applied to each verification request. See [Request Filter](../request-filter/).                                                                                                                 |
-| `publishVerificationResult` | `boolean` — `true`                         | Publish results back to the Pact Broker.                                                                                                                                                                   |
-| `pactBrokerToken`           | `string` — `env.PACT_BROKER_TOKEN`         | Authentication token for the Pact Broker.                                                                                                                                                                  |
-| `providerVersion`           | `string` — `env.GITHUB_SHA \|\| 'unknown'` | Version string for this verification. Typically a commit SHA.                                                                                                                                              |
-| `providerVersionBranch`     | `string` — `env.GITHUB_BRANCH \|\| 'main'` | Branch name for this verification.                                                                                                                                                                         |
-| `providerVersionTags`       | `string[]` — `getProviderVersionTags()`    | Tags applied to the provider version. See [getProviderVersionTags](./get-provider-version-tags).                                                                                                           |
-| `pactUrls`                  | `string[]` — optional                      | Local pact file paths. Bypasses broker when provided.                                                                                                                                                      |
-| `pactBrokerUrl`             | `string` — `env.PACT_BROKER_BASE_URL`      | Broker base URL. Required unless `pactUrls` or matching `pactPayloadUrl` provided.                                                                                                                         |
-| `pactPayloadUrl`            | `string` — `env.PACT_PAYLOAD_URL`          | Webhook URL. When it matches provider + consumer, overrides broker verification.                                                                                                                           |
+| Name                        | Type / Default                                                            | What it does                                                                                                                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider`                  | `string` — **required**                                                   | Provider name; must match consumer pact definitions.                                                                                                                                                       |
+| `port`                      | `string` — **required**                                                   | Local port. Builds `providerBaseUrl` as `http://localhost:{port}`.                                                                                                                                         |
+| `includeMainAndDeployed`    | `boolean` — **required**                                                  | When `true`, selectors include `mainBranch` + `deployedOrReleased`. Set `false` during breaking changes.                                                                                                   |
+| `logLevel`                  | `string` — `'info'`                                                       | Pact verification log verbosity (`'trace'` through `'error'`).                                                                                                                                             |
+| `stateHandlers`             | `StateHandlers` — optional                                                | Provider state setup/teardown functions keyed by state description string.                                                                                                                                 |
+| `beforeEach`                | `() => Promise` — optional                                                | Hook called before each interaction is verified.                                                                                                                                                           |
+| `afterEach`                 | `() => Promise` — optional                                                | Hook called after each interaction is verified.                                                                                                                                                            |
+| `consumer`                  | `string` — optional                                                       | Scopes selectors to this consumer only. Omit to verify all consumers.                                                                                                                                      |
+| `consumerBranch`            | `string` — `env.PACT_CONSUMER_BRANCH`                                     | When set, adds `{ branch: <name> }` to the consumer version selectors. Requires `consumer` to also be set (throws otherwise). Manual fallback only; see [Verifying a Specific Consumer Branch](#verifying-a-specific-consumer-branch). |
+| `enablePending`             | `boolean` — `false`                                                       | When `true`, pending pacts do not fail the provider build. See [enablePending — bridge, not bypass](../concepts#enablepending) for when to use this and why a permanent workflow env setting is dangerous. |
+| `requestFilter`             | `RequestFilter` — `noOpRequestFilter`                                     | Middleware applied to each verification request. See [Request Filter](../request-filter/).                                                                                                                 |
+| `publishVerificationResult` | `boolean` — `true`                                                        | Publish results back to the Pact Broker.                                                                                                                                                                   |
+| `pactBrokerToken`           | `string` — `env.PACT_BROKER_TOKEN`                                        | Authentication token for the Pact Broker.                                                                                                                                                                  |
+| `providerVersion`           | `string` — `env.PACT_PROVIDER_VERSION \|\| env.GITHUB_SHA \|\| 'unknown'` | Version string for this verification. Typically a commit SHA.                                                                                                                                              |
+| `providerVersionBranch`     | `string` — `env.PACT_PROVIDER_BRANCH \|\| env.GITHUB_BRANCH \|\| 'main'`  | Branch name for this verification.                                                                                                                                                                         |
+| `providerVersionTags`       | `string[]` — `getProviderVersionTags()`                                   | Tags applied to the provider version. See [getProviderVersionTags](./get-provider-version-tags).                                                                                                           |
+| `pactUrls`                  | `string[]` — optional                                                     | Local pact file paths. Bypasses broker when provided.                                                                                                                                                      |
+| `pactBrokerUrl`             | `string` — `env.PACT_BROKER_BASE_URL`                                     | Broker base URL. Required unless `pactUrls` or matching `pactPayloadUrl` provided.                                                                                                                         |
+| `pactPayloadUrl`            | `string` — `env.PACT_PAYLOAD_URL`                                         | Webhook URL. When it matches provider + consumer, overrides broker verification.                                                                                                                           |
 
 Both builders log a `console.table()` summary of the resolved configuration
 to help with CI debugging.
@@ -73,6 +74,12 @@ The internal `buildConsumerVersionSelectors` function constructs an array of
   coordinated feature development: when both consumer and provider create a
   branch named `feature/new-endpoint`, the consumer pact from that branch is
   verified against the provider on that branch.
+
+**Included when `consumerBranch` is set (requires `consumer` too):**
+
+- `{ consumer: "<consumer>", branch: "<consumerBranch>" }` -- Verifies pacts
+  from a specific named consumer branch, scoped to that one consumer. See
+  [Verifying a specific consumer branch](#verifying-a-specific-consumer-branch).
 
 **Included when `includeMainAndDeployed` is `true`:**
 
@@ -124,6 +131,64 @@ buildVerifierOptions({
 })
 // Selectors: [{ matchingBranch: true }]
 ```
+
+---
+
+## Verifying a Specific Consumer Branch
+
+**Problem:** consumer branch name and provider branch name don't match (e.g.
+provider merges to a weekly `release/week-32` branch before merging to `main`).
+`matchingBranch: true` finds nothing, so the consumer's `can-i-deploy` fails
+until the provider merges to `main`.
+
+**Fix: nothing to change in provider test code, only CI config.**
+
+1. Update `.github/workflows/contract-test-webhook.yml` to the latest version
+   from this repo. The checkout step now falls back to
+   `${pactbroker.providerVersionBranch}` (passed as `PACT_PROVIDER_BRANCH` in the
+   webhook payload) instead of jumping straight to `main`.
+2. Make sure the provider has a version currently deployed or released to an
+   environment on the release branch (e.g. `release/week-32`), not merely a
+   CI run on it -- a CI run alone registers a version in PactFlow but the
+   provider-version-selection webhook payload (`${pactbroker.providerVersionBranch}`)
+   reflects branches with a recorded deployment/release. Check whether
+   `record-deployment`/your release pipeline already tags that branch; if it
+   only ever runs on `main`, this precondition isn't met yet and step 3 below
+   won't have anything to find.
+3. Consumer opens its PR as usual. Pact Broker's webhook fires with
+   `branch: release/week-32`, the provider workflow checks out that branch
+   and verifies the pact. That alone does **not** make the consumer's own
+   `can-i-deploy --to-environment` gate pass -- that gate checks compatibility
+   against whatever provider version is actually deployed to the target
+   environment, which is still old `main` until the release branch ships. See
+   [Verifying against a specific provider branch (consumer side)](../concepts#verifying-against-a-specific-provider-branch-consumer-side)
+   for the consumer-side half of this.
+
+**Alternative, if the webhook isn't wired up yet:** the repo ships a matching
+composite action, `.github/actions/detect-consumer-branch`. It reads a
+`Pact consumer branch: <name>` line from the PR description (same pattern as
+the existing `detect-breaking-change` action for `PACT_BREAKING_CHANGE`) and
+exports `PACT_CONSUMER_BRANCH`. `buildVerifierOptions` reads it automatically
+and adds `{ branch: <name> }` to the selectors.
+
+1. Copy `.github/actions/detect-consumer-branch/` and the `Pact Consumer Branch`
+   section of `.github/PULL_REQUEST_TEMPLATE.md` into the provider repo.
+2. Add a step calling it in the provider verification workflow, right next to
+   `detect-breaking-change`. See `contract-test-provider.yml` for the exact
+   placement.
+3. Fill in the branch name on the provider's PR description when needed. The
+   field is only read from the open PR, never from the merged commit on
+   `push`, so there's nothing to blank out afterward.
+4. `consumerBranch` requires `consumer` to also be set (an unscoped
+   `{ branch: <name> }` selector would match that branch name across every
+   consumer of the provider); `buildVerifierOptions`/`buildMessageVerifierOptions`
+   throw if `consumerBranch` is set without `consumer`.
+
+Requires manual coordination every cycle; prefer the webhook fix above once
+it's in place.
+
+See [handlePactBrokerUrlAndSelectors](./handle-pact-broker-url-and-selectors)
+for how both `PACT_PAYLOAD_URL` and `PACT_CONSUMER_BRANCH` are applied.
 
 ---
 

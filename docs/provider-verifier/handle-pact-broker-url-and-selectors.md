@@ -35,19 +35,21 @@ handlePactBrokerUrlAndSelectors({
 
 ## Parameters
 
-| Name                     | Type                                            | Default | Description                                          |
-| ------------------------ | ----------------------------------------------- | ------- | ---------------------------------------------------- |
-| `pactPayloadUrl`         | `string \| undefined`                           | --      | Webhook-provided URL. Checked first.                 |
-| `pactBrokerUrl`          | `string \| undefined`                           | --      | Broker base URL. Used as fallback.                   |
-| `consumer`               | `string \| undefined`                           | --      | Consumer name for selector scoping and URL matching. |
-| `includeMainAndDeployed` | `boolean`                                       | --      | Controls selector breadth.                           |
-| `options`                | `VerifierOptions \| PactMessageProviderOptions` | --      | The options object to mutate.                        |
+| Name                     | Type                                            | Default | Description                                                                  |
+| ------------------------ | ----------------------------------------------- | ------- | ---------------------------------------------------------------------------- |
+| `pactPayloadUrl`         | `string \| undefined`                           | --      | Webhook-provided URL. Checked first.                                         |
+| `pactBrokerUrl`          | `string \| undefined`                           | --      | Broker base URL. Used as fallback.                                           |
+| `consumer`               | `string \| undefined`                           | --      | Consumer name for selector scoping and URL matching.                         |
+| `includeMainAndDeployed` | `boolean`                                       | --      | Controls selector breadth.                                                   |
+| `consumerBranch`         | `string \| undefined`                           | --      | When set, adds `{ branch: <name> }` to selectors. Requires `consumer` to also be set; throws otherwise. For stable branches only. |
+| `options`                | `VerifierOptions \| PactMessageProviderOptions` | --      | The options object to mutate.                                                |
 
 ## Side Effects
 
 - When payload URL matches: sets `options.pactUrls`, deletes `options.pactBrokerUrl` and `options.consumerVersionSelectors`.
-- When falling back to broker: sets `options.pactBrokerUrl` and `options.consumerVersionSelectors`.
+- When falling back to broker: sets `options.pactBrokerUrl` and `options.consumerVersionSelectors`. If `consumerBranch` is provided, `{ branch: <name> }` is added to the selectors between `matchingBranch` and `mainBranch`.
 - Throws `Error` if neither `pactPayloadUrl` (matching) nor `pactBrokerUrl` is available.
+- Throws `Error` if `consumerBranch` is provided without `consumer`.
 
 ---
 

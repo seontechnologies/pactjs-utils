@@ -479,6 +479,51 @@ deployment is blocked.
 This is a hard gate in CI. It runs after tests pass and before the actual
 deployment step.
 
+### Verifying against a specific provider branch (consumer side)
+
+The webhook/`detect-consumer-branch` mechanisms above solve one half of a
+short-lived branch mismatch: getting the *provider* to verify against a
+release branch before it merges to `main`. They don't solve the other half:
+the *consumer's own* `can-i-deploy` gate still only asks
+`--to-environment <env>`, which resolves to whichever version is currently
+deployed -- typically old `main` -- not the provider's release-branch tip. The
+verification result gets published, but the consumer's gate never looks at it.
+
+`scripts/can-i-deploy.sh` supports an additive, PR-only check for this: when
+`PACT_PROVIDER_BRANCH` is set (via the `detect-provider-branch` composite
+action reading a `Pact provider branch: <name>` line from the PR
+description -- same pattern as `detect-consumer-branch`) and
+`PROVIDER_PACTICIPANT` is configured, the environment check excludes that one
+provider with `--ignore`, and a second call checks it separately against its
+branch tip:
+
+```bash
+pact-broker can-i-deploy \
+    --pacticipant SampleAppConsumer --version="$GITHUB_SHA" \
+    --to-environment dev --ignore SampleMoviesAPI \
+    --retry-while-unknown=10 --retry-interval=30
+
+pact-broker can-i-deploy \
+    --pacticipant SampleAppConsumer --version="$GITHUB_SHA" \
+    --pacticipant SampleMoviesAPI --branch="$PACT_PROVIDER_BRANCH" \
+    --retry-while-unknown=10 --retry-interval=30
+```
+
+`--branch` proves compatibility with the tip of a branch, which is weaker
+than proving compatibility with what's actually running. That's fine here
+because `--ignore` scopes the weaker check to exactly the one provider
+known to be in flight: the environment check still runs unconditionally,
+and still fails hard, for every *other* dependency `SampleAppConsumer` has.
+Neither call needs to swallow the other's failure -- both run under the
+script's normal `set -e`, so a real failure anywhere still aborts the build.
+
+The override itself is bounded, not open-ended: `detect-provider-branch`
+only exports `PACT_PROVIDER_BRANCH` on `pull_request`, never on push, so
+the push-to-main path -- the one that actually calls `record-deployment` --
+never has it set and always runs the plain, unscoped `--to-environment`
+check. The override is gone once the provider merges and the PR description
+field is blanked.
+
 ### record-deployment after successful deploy
 
 Once a service is successfully deployed to an environment, run

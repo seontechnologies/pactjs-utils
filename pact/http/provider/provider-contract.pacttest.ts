@@ -4,7 +4,10 @@ import path from 'path'
 import { stateHandlers } from '../helpers/state-handlers'
 import { generateAuthToken, pactAdminIdentity } from '../helpers/pact-helpers'
 import { createRequestFilter } from '../../../src/request-filter'
-import { buildVerifierOptions } from '../../../src/provider-verifier'
+import {
+  buildVerifierOptions,
+  isBreakingChangeTolerantBranch
+} from '../../../src/provider-verifier'
 import { truncateTables } from '../../../sample-app/backend/scripts/truncate-tables'
 
 // The server is started externally via start-server-and-test (see package.json).
@@ -71,11 +74,42 @@ describe('Provider contract verification', () => {
       const output = await verifier.verifyProvider()
       console.log('Pact Verification Complete!', output)
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const lowerMessage = message.toLowerCase()
+      const noPactsFound =
+        lowerMessage.includes('no pacts found') ||
+        lowerMessage.includes('no pacts were found')
+
+      // Only tolerate "no pacts found" as an empty-broker bootstrap state
+      // when no explicit consumer branch was requested. PACT_CONSUMER_BRANCH
+      // comes from a hand-typed PR description line — a typo silently
+      // resolves to a { consumer, branch } selector that matches nothing,
+      // and treating that as "OK, nothing to verify" would pass the build
+      // green while claiming a cross-branch verification that never ran.
+      if (noPactsFound && !process.env.PACT_CONSUMER_BRANCH) {
+        console.log(
+          'No pacts found in broker — skipping. Publish a consumer pact to enable this test.'
+        )
+        return
+      }
+
       console.error('Pact Verification Failed:', error)
 
-      if (PACT_BREAKING_CHANGE === 'true' && GITHUB_BRANCH === 'main') {
+      // Checked ahead of the breaking-change tolerance below: that check
+      // swallows any verification failure once PACT_BREAKING_CHANGE is set,
+      // which would otherwise re-swallow the exact typo case rejected above
+      // whenever a breaking change also happens to be in flight — the same
+      // false-green Gellert flagged, just reached through the other branch.
+      if (noPactsFound && process.env.PACT_CONSUMER_BRANCH) {
+        throw error
+      }
+
+      if (
+        PACT_BREAKING_CHANGE === 'true' &&
+        isBreakingChangeTolerantBranch(GITHUB_BRANCH)
+      ) {
         console.log(
-          'Ignoring verification failures due to breaking change on main branch.'
+          'Ignoring verification failures due to breaking change on a deployable/release branch.'
         )
       } else {
         throw error

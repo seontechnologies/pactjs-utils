@@ -43,6 +43,12 @@ tag is excluded even on master. This prevents the Pact Broker from treating
 the breaking provider version as a deployable candidate while the consumer
 is still catching up.
 
+Branch resolution reads `PACT_PROVIDER_BRANCH` first, falling back to
+`GITHUB_BRANCH` -- the same order `buildVerifierOptions`'s
+`providerVersionBranch` default uses. A repo that only sets
+`PACT_PROVIDER_BRANCH` (the documented webhook override) gets consistent
+tags, not an empty array.
+
 CI detection uses the `is-ci` package.
 
 ## Related

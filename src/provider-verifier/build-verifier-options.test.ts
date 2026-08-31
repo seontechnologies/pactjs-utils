@@ -61,6 +61,9 @@ describe('buildVerifierOptions', () => {
   it('uses env vars for defaults', () => {
     process.env.GITHUB_SHA = 'abc123'
     process.env.GITHUB_BRANCH = 'feature/test'
+    process.env.PACT_PROVIDER_VERSION = 'provider-abc123'
+    process.env.PACT_PROVIDER_BRANCH = 'release/week-32'
+    process.env.PACT_CONSUMER_BRANCH = 'feature/mcp'
     process.env.PACT_BROKER_TOKEN = 'my-token'
     process.env.PACT_BROKER_BASE_URL = 'https://broker.env.com'
     process.env.PACT_PAYLOAD_URL = 'https://payload.url'
@@ -71,9 +74,28 @@ describe('buildVerifierOptions', () => {
       includeMainAndDeployed: true
     })
 
+    expect(options.providerVersion).toBe('provider-abc123')
+    expect(options.providerVersionBranch).toBe('release/week-32')
+    expect(options.pactBrokerToken).toBe('my-token')
+    expect(handlePactBrokerUrlAndSelectors).toHaveBeenCalledWith(
+      expect.objectContaining({
+        consumerBranch: 'feature/mcp'
+      })
+    )
+  })
+
+  it('falls back to GITHUB_SHA and GITHUB_BRANCH when PACT_PROVIDER_* is unset', () => {
+    process.env.GITHUB_SHA = 'abc123'
+    process.env.GITHUB_BRANCH = 'feature/test'
+
+    const options = buildVerifierOptions({
+      provider: 'SampleMoviesAPI',
+      port: '3001',
+      includeMainAndDeployed: true
+    })
+
     expect(options.providerVersion).toBe('abc123')
     expect(options.providerVersionBranch).toBe('feature/test')
-    expect(options.pactBrokerToken).toBe('my-token')
   })
 
   it('accepts custom requestFilter', () => {
@@ -168,6 +190,26 @@ describe('buildMessageVerifierOptions', () => {
       includeMainAndDeployed: true,
       options: expect.objectContaining({ provider: 'SampleMoviesAPI' })
     })
+  })
+
+  it('forwards the consumer branch from the environment', () => {
+    process.env.PACT_CONSUMER_BRANCH = 'feature/message-consumer'
+    const messageProviders = {
+      'a movie event': () => Promise.resolve({ id: 1, name: 'Test' })
+    }
+
+    buildMessageVerifierOptions({
+      provider: 'SampleMoviesAPI',
+      messageProviders,
+      includeMainAndDeployed: true,
+      pactBrokerUrl: 'https://broker.example.com'
+    })
+
+    expect(handlePactBrokerUrlAndSelectors).toHaveBeenCalledWith(
+      expect.objectContaining({
+        consumerBranch: 'feature/message-consumer'
+      })
+    )
   })
 
   it('uses local pactUrls for message verifier without broker selector handling', () => {

@@ -24,9 +24,11 @@ runs:
             console.log('PACT_BREAKING_CHANGE remains false.');
           }
 
-    # Push-to-main path: resolve the merged PR and read the same checkbox.
-    - name: Set PACT_BREAKING_CHANGE from merged PR (push to main)
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Push path: resolve the merged PR and read the same checkbox. Covers
+    # release/** too, since contract-test-provider*.yml also runs push
+    # verification there now (short-living consumer/provider branch support).
+    - name: Set PACT_BREAKING_CHANGE from merged PR (push)
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
       uses: actions/github-script@v7
       with:
         script: |

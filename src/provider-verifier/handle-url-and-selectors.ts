@@ -14,12 +14,14 @@ export function handlePactBrokerUrlAndSelectors({
   pactBrokerUrl,
   consumer,
   includeMainAndDeployed,
+  consumerBranch,
   options
 }: {
   pactPayloadUrl?: string
   pactBrokerUrl?: string
   consumer?: string
   includeMainAndDeployed: boolean
+  consumerBranch?: string
   options: PactMessageProviderOptions | VerifierOptions
 }): void {
   if (pactPayloadUrl) {
@@ -37,6 +39,7 @@ export function handlePactBrokerUrlAndSelectors({
     pactBrokerUrl,
     consumer,
     includeMainAndDeployed,
+    consumerBranch,
     options
   })
 }
@@ -67,7 +70,7 @@ export function getProviderVersionTags(): string[] {
     return tags
   }
 
-  const branch = process.env.GITHUB_BRANCH
+  const branch = process.env.PACT_PROVIDER_BRANCH || process.env.GITHUB_BRANCH
   const isBreakingChange = process.env.PACT_BREAKING_CHANGE === 'true'
   const isDeployableBranch = branch === 'master' || branch === 'main'
 
@@ -88,12 +91,30 @@ export function getProviderVersionTags(): string[] {
 }
 
 /**
+ * Branches on which a Pact-breaking-change verification failure should be
+ * swallowed instead of failing the build: `main`/`master` and any
+ * `release/**` branch (short-lived release branches get the same tolerance
+ * as main while a coordinated breaking change is in flight).
+ *
+ * Deliberately separate from the `isDeployableBranch` check inside
+ * `getProviderVersionTags`: that one gates the `'dev'` tag and must stay
+ * `main`/`master`-only, since tagging a release-branch verification as
+ * `'dev'` would poison every consumer's `can-i-deploy --to-environment dev`.
+ */
+export function isBreakingChangeTolerantBranch(branch: string): boolean {
+  return (
+    branch === 'main' || branch === 'master' || branch.startsWith('release/')
+  )
+}
+
+/**
  * Builds an array of ConsumerVersionSelector objects for Pact verification.
  * Determines which consumer pacts should be verified against the provider.
  */
 function buildConsumerVersionSelectors(
   consumer: string | undefined,
-  includeMainAndDeployed = true
+  includeMainAndDeployed = true,
+  consumerBranch?: string
 ): ConsumerVersionSelector[] {
   const baseSelector: Partial<ConsumerVersionSelector> = consumer
     ? { consumer }
@@ -102,6 +123,10 @@ function buildConsumerVersionSelectors(
   const selectors: ConsumerVersionSelector[] = [
     { ...baseSelector, matchingBranch: true }
   ]
+
+  if (consumerBranch) {
+    selectors.push({ ...baseSelector, branch: consumerBranch })
+  }
 
   if (includeMainAndDeployed) {
     selectors.push({ ...baseSelector, mainBranch: true })
@@ -189,15 +214,24 @@ function usePactBrokerUrlAndSelectors({
   pactBrokerUrl,
   consumer,
   includeMainAndDeployed,
+  consumerBranch,
   options
 }: {
   pactBrokerUrl: string | undefined
   consumer: string | undefined
   includeMainAndDeployed: boolean
+  consumerBranch: string | undefined
   options: PactMessageProviderOptions | VerifierOptions
 }): void {
   if (!pactBrokerUrl) {
     throw new Error('PACT_BROKER_BASE_URL is required but not set.')
+  }
+
+  if (consumerBranch && !consumer) {
+    throw new Error(
+      'consumerBranch requires consumer to be set: an unscoped { branch } selector ' +
+        'would match that branch name across every consumer of this provider.'
+    )
   }
 
   console.log(`Using Pact Broker Base URL: ${pactBrokerUrl}`)
@@ -205,13 +239,20 @@ function usePactBrokerUrlAndSelectors({
   options.pactBrokerUrl = pactBrokerUrl
   options.consumerVersionSelectors = buildConsumerVersionSelectors(
     consumer,
-    includeMainAndDeployed
+    includeMainAndDeployed,
+    consumerBranch
   )
 
   if (consumer) {
     console.log(`Running verification for consumer: ${consumer}`)
   } else {
     console.log('Running verification for all consumers')
+  }
+
+  if (consumerBranch) {
+    console.log(
+      `Also verifying against consumer branch: ${consumerBranch} (set via PACT_CONSUMER_BRANCH)`
+    )
   }
 
   if (includeMainAndDeployed) {

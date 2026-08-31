@@ -1,10 +1,12 @@
 import { MessageProviderPact } from '@pact-foundation/pact'
 import type { PactMessageProviderOptions } from '@pact-foundation/pact'
 import path from 'path'
-import { vi, describe, it, beforeAll, afterAll } from 'vitest'
 import { messageProviders } from '../helpers/message-providers'
 import { stateHandlers } from '../helpers/state-handlers'
-import { buildMessageVerifierOptions } from '../../../src/provider-verifier'
+import {
+  buildMessageVerifierOptions,
+  isBreakingChangeTolerantBranch
+} from '../../../src/provider-verifier'
 
 // Message provider verification validates that the provider can produce
 // messages matching the consumer's expectations.
@@ -62,11 +64,14 @@ describe('Pact Verification for Message queue', () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const lowerMessage = message.toLowerCase()
-
-      if (
+      const noPactsFound =
         lowerMessage.includes('no pacts found') ||
         lowerMessage.includes('no pacts were found')
-      ) {
+
+      // Only tolerate "no pacts found" as an empty-broker bootstrap state
+      // when no explicit consumer branch was requested — see the HTTP
+      // pacttest's identical guard for the typo-silently-passes rationale.
+      if (noPactsFound && !process.env.PACT_CONSUMER_BRANCH) {
         console.log(
           'No message pacts found in broker — skipping. Publish a message consumer pact to enable this test.'
         )
@@ -75,9 +80,20 @@ describe('Pact Verification for Message queue', () => {
 
       console.error('Pact Message Verification Failed:', error)
 
-      if (PACT_BREAKING_CHANGE === 'true' && GITHUB_BRANCH === 'main') {
+      // Checked ahead of the breaking-change tolerance below — see the HTTP
+      // pacttest for why: that tolerance swallows any failure once
+      // PACT_BREAKING_CHANGE is set, which would otherwise re-swallow this
+      // same typo case whenever a breaking change is also in flight.
+      if (noPactsFound && process.env.PACT_CONSUMER_BRANCH) {
+        throw error
+      }
+
+      if (
+        PACT_BREAKING_CHANGE === 'true' &&
+        isBreakingChangeTolerantBranch(GITHUB_BRANCH)
+      ) {
         console.log(
-          'Ignoring Pact Message verification failures due to breaking change on main branch.'
+          'Ignoring Pact Message verification failures due to breaking change on a deployable/release branch.'
         )
       } else {
         throw error

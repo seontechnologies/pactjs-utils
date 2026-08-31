@@ -6,7 +6,8 @@ vi.mock('is-ci', () => ({ default: false }))
 
 import {
   handlePactBrokerUrlAndSelectors,
-  getProviderVersionTags
+  getProviderVersionTags,
+  isBreakingChangeTolerantBranch
 } from './handle-url-and-selectors'
 
 describe('handlePactBrokerUrlAndSelectors', () => {
@@ -108,6 +109,45 @@ describe('handlePactBrokerUrlAndSelectors', () => {
     ])
   })
 
+  it('throws when consumerBranch is specified without a consumer', () => {
+    const options: VerifierOptions = {
+      provider: 'SampleMoviesAPI',
+      providerBaseUrl: 'http://localhost:3001'
+    }
+    const consumerBranch = 'feature/mcp-new-thing'
+
+    expect(() =>
+      handlePactBrokerUrlAndSelectors({
+        pactBrokerUrl: 'https://broker.example.com',
+        consumer: undefined,
+        includeMainAndDeployed: true,
+        consumerBranch,
+        options
+      })
+    ).toThrow('consumerBranch requires consumer to be set')
+  })
+
+  it('adds a branch selector with consumer filter when both are specified', () => {
+    const options: VerifierOptions = {
+      provider: 'SampleMoviesAPI',
+      providerBaseUrl: 'http://localhost:3001'
+    }
+    const consumerBranch = 'feature/mcp-new-thing'
+
+    handlePactBrokerUrlAndSelectors({
+      pactBrokerUrl: 'https://broker.example.com',
+      consumer: 'WebConsumer',
+      includeMainAndDeployed: false,
+      consumerBranch,
+      options
+    })
+
+    expect(options.consumerVersionSelectors).toEqual([
+      { consumer: 'WebConsumer', matchingBranch: true },
+      { consumer: 'WebConsumer', branch: consumerBranch }
+    ])
+  })
+
   it('throws when pactBrokerUrl is missing and no pactPayloadUrl', () => {
     const options: VerifierOptions = {
       provider: 'SampleMoviesAPI',
@@ -156,6 +196,12 @@ describe('getProviderVersionTags', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv }
+    // Cleared explicitly: getProviderVersionTags now reads this before
+    // GITHUB_BRANCH, so a value leaking in from the ambient shell (e.g. a
+    // developer with PACT_PROVIDER_BRANCH set from a previous script in the
+    // same terminal) would silently override every test below that only
+    // sets/deletes GITHUB_BRANCH.
+    delete process.env.PACT_PROVIDER_BRANCH
   })
 
   afterEach(async () => {
@@ -225,5 +271,43 @@ describe('getProviderVersionTags', () => {
 
     const tags = getProviderVersionTags()
     expect(tags).toEqual(['breaking/foo'])
+  })
+
+  it('prefers PACT_PROVIDER_BRANCH over GITHUB_BRANCH, matching getProviderVersionBranch', async () => {
+    await setIsCI(true)
+    delete process.env.PACT_BREAKING_CHANGE
+    process.env.PACT_PROVIDER_BRANCH = 'release/week-32'
+    process.env.GITHUB_BRANCH = 'main'
+
+    const tags = getProviderVersionTags()
+    // A downstream repo that only sets PACT_PROVIDER_BRANCH (the documented
+    // webhook override) must get a correct branch tag, not an empty one.
+    expect(tags).toEqual(['release/week-32'])
+  })
+
+  it('falls back to GITHUB_BRANCH when PACT_PROVIDER_BRANCH is unset', async () => {
+    await setIsCI(true)
+    delete process.env.PACT_BREAKING_CHANGE
+    delete process.env.PACT_PROVIDER_BRANCH
+    process.env.GITHUB_BRANCH = 'main'
+
+    const tags = getProviderVersionTags()
+    expect(tags).toEqual(['dev', 'main'])
+  })
+})
+
+describe('isBreakingChangeTolerantBranch', () => {
+  it('returns true for main and master', () => {
+    expect(isBreakingChangeTolerantBranch('main')).toBe(true)
+    expect(isBreakingChangeTolerantBranch('master')).toBe(true)
+  })
+
+  it('returns true for any release/** branch', () => {
+    expect(isBreakingChangeTolerantBranch('release/week-32')).toBe(true)
+  })
+
+  it('returns false for other branches', () => {
+    expect(isBreakingChangeTolerantBranch('feature/my-branch')).toBe(false)
+    expect(isBreakingChangeTolerantBranch('releases/week-32')).toBe(false)
   })
 })
