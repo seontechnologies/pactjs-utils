@@ -14,7 +14,7 @@ jobs:
       github.event.comment.user.type != 'Bot' &&
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '@claude')
-    uses: seontechnologies/seon-gh-actions/.github/workflows/rwf-claude-code-review.yml@v2
+    uses: seontechnologies/seon-gh-actions/.github/workflows/rwf-claude-code-review.yml@v3
     with:
       review_prompt: |
         IMPORTANT: Skip reviewing any files in the bmad/ directory - these are BMAD-METHOD™ framework files for AI-assisted development planning and should not be reviewed for code quality.
@@ -72,5 +72,6 @@ jobs:
       skip_draft_prs: true
       skip_backports: true
       skip_epic_to_main: true
+      tea_use_pactjs_utils: "true"
     secrets:
       anthropic_api_key: ${{ secrets.CLAUDE_REVIEW_TOKEN }}
