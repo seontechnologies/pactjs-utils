@@ -19,12 +19,15 @@ export default defineConfig({
     // pair. Parallel test files race on that shared file and produce a
     // non-deterministic artifact. Keep this off for every pact suite.
     fileParallelism: false,
-    // Run every pact test file inside a single forked subprocess. Threads
-    // pool (vitest default) shares the @pact-foundation/pact Rust FFI
-    // handle across files in the same consumer+provider pair, which on
-    // Linux CI produces "request was expected but not received" flakes
-    // when a mock server teardown overlaps the next file's startup.
+    // Run each pact test file in its own forked subprocess. A single shared
+    // fork keeps the @pact-foundation/pact Rust FFI handle alive across
+    // files, and a mock server teardown can overlap the next file's startup,
+    // which on Linux CI produces "request was expected but not received"
+    // flakes (observed 2026-10-07 with singleFork: true). A fork per file
+    // lets process exit reap the Rust runtime between files. Files still run
+    // sequentially (fileParallelism: false), so the shared pact JSON per
+    // consumer+provider pair accumulates by merge across files.
     pool: 'forks',
-    poolOptions: { forks: { singleFork: true } }
+    poolOptions: { forks: { singleFork: false } }
   }
 })
