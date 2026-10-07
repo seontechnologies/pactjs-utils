@@ -26,7 +26,7 @@ export default defineConfig({
     // flakes (observed 2026-10-07 with singleFork: true). A fork per file
     // lets process exit reap the Rust runtime between files. Files still run
     // sequentially (fileParallelism: false), so the shared pact JSON per
-    // consumer+provider pair is merged, never raced.
+    // consumer+provider pair accumulates by merge across files.
     pool: 'forks',
     poolOptions: { forks: { singleFork: false } }
   }
