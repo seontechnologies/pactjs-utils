@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+inheritance: true
+
+reviews:
+  path_instructions:
+    - path: 'src/**'
+      instructions: |
+        Validate Pact consumer and provider testing patterns and clean
+        integration with test runners such as Jest and Vitest. Check strict
+        TypeScript usage with explicit return types, comprehensive error
+        handling, and edge case coverage. Enforce the functional core,
+        fixture shell pattern with dual interface support (direct function
+        plus fixture). When new source code is added, check that unit and
+        end-to-end tests accompany it. Flag hard waits, shared state, and
+        tests that are not parallel safe.
+    - path: 'package.json'
+      instructions: |
+        Verify subpath exports are correctly configured for dual CommonJS
+        and ESM support. Flag breaking changes that affect backward
+        compatibility with existing consumer repositories. Keep external
+        dependencies minimal, appropriate, and at secure versions.
+    - path: 'sample-app/**'
+      instructions: |
+        Check that the sample app exercises real-world usage of the
+        utilities end to end, including consumer and provider contract
+        patterns and Pact broker integration and configuration. Flag sample
+        code that drifts from the documented public API.
+    - path: 'scripts/**'
+      instructions: |
+        Review shell scripts for input validation, quoting, error handling,
+        and exit codes. Check Pact broker publishing, can-i-deploy, and
+        record-deployment flows for credential exposure. Never log tokens
+        or secret values.
+    - path: 'pact/**'
+      instructions: |
+        Review Pact contract files and mock data for security. Flag real
+        credentials, tokens, or personal data in mock payloads. Check that
+        example data is synthetic and safe to publish to a broker.
+    - path: 'docs/**'
+      instructions: |
+        Check documentation completeness with real-world examples. Verify
+        that documented usage, options, and migration steps match the actual
+        API of the source modules.
