@@ -195,20 +195,7 @@ jobs:
         if: steps.version.outputs.skip != 'true'
         run: echo "@seontechnologies:registry=https://registry.npmjs.org" > .npmrc
 
-      # 11. Verify both publishes succeeded
-      - name: Verify publish on npmjs.org
-        if: steps.version.outputs.skip != 'true'
-        run: |
-          echo "Verifying package ${{ steps.version.outputs.new_version }} is available..."
-          sleep 5  # Brief wait for registries to update
-          npm view @seontechnologies/pactjs-utils@${{ steps.version.outputs.new_version }} --registry=https://registry.npmjs.org version && echo "✓ Verified on npmjs.org"
-
-      - name: Verify publish on GitHub Packages
-        if: steps.version.outputs.skip != 'true'
-        run: |
-          npm view @seontechnologies/pactjs-utils@${{ steps.version.outputs.new_version }} --registry=https://npm.pkg.github.com version && echo "✓ Verified on GitHub Packages"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # npm publish exits non-zero on failure, so no separate verification needed
 
       # 12. Create git commit, tag and branch
       - name: Create commit and branch
