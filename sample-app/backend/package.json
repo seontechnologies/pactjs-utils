@@ -9,7 +9,7 @@
   "scripts": {
     "test": "vitest run --config vitest.config.mts",
     "test:watch": "vitest --config vitest.config.mts",
-    "db:migrate": "npx prisma migrate reset --force --skip-seed generate",
+    "db:migrate": "npx prisma migrate reset --force && npx prisma generate",
     "db:sync": "npx prisma db push --force-reset && npx prisma generate",
     "db:migrate-prod": "npx prisma migrate deploy",
     "reset:db": "tsx ./scripts/global-setup.ts",
