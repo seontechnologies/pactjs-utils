@@ -6,13 +6,16 @@ import type { Movie } from '@shared/types/movie-types'
 
 // Mock kafkajs
 vi.mock('kafkajs', () => ({
-  Kafka: vi.fn().mockImplementation(() => ({
-    producer: vi.fn(() => ({
-      connect: vi.fn().mockResolvedValue(undefined),
-      send: vi.fn(),
-      disconnect: vi.fn()
-    }))
-  }))
+  // Vitest 4+ requires a function (not an arrow) for mocks invoked with `new`
+  Kafka: vi.fn().mockImplementation(function () {
+    return {
+      producer: vi.fn(() => ({
+        connect: vi.fn().mockResolvedValue(undefined),
+        send: vi.fn(),
+        disconnect: vi.fn()
+      }))
+    }
+  })
 }))
 
 // Mock fs — must provide default export since source uses `import fs from 'node:fs/promises'`

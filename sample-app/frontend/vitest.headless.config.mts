@@ -1,9 +1,9 @@
 import baseConfig from './vitest.config.mts'
-import type { UserConfigExport } from 'vitest/config'
+import type { ViteUserConfigExport } from 'vitest/config'
 import { defineConfig } from 'vitest/config'
 import merge from 'lodash/merge'
 
-const browserConfig: UserConfigExport = {
+const browserConfig: ViteUserConfigExport = {
   test: {
     browser: {
       instances: [

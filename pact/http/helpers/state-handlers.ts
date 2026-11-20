@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client'
-import type { Movie } from '@prisma/client'
+import { createPrismaClient } from '../../../sample-app/backend/prisma/client'
+import type { Movie } from '../../../sample-app/backend/src/generated/prisma/client'
 import type { AnyJson } from '../../../src/pact-types'
 import { MovieService } from '../../../sample-app/backend/src/movie-service'
 import { MovieAdapter } from '../../../sample-app/backend/src/movie-adapter'
@@ -16,7 +16,7 @@ type ExistingMovieParams = {
   id?: number
 }
 
-const prisma = new PrismaClient()
+const prisma = createPrismaClient()
 const movieAdapter = new MovieAdapter(prisma)
 const movieService = new MovieService(movieAdapter)
 

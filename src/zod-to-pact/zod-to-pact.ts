@@ -9,7 +9,6 @@ type Matcher = (schema: z.ZodTypeAny, example?: unknown) => unknown
 let _getOpenApiMetadata: ((s: z.ZodTypeAny) => Record<string, unknown>) | null =
   null
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('@asteasolutions/zod-to-openapi') as {
     getOpenApiMetadata: (s: z.ZodTypeAny) => Record<string, unknown>
   }

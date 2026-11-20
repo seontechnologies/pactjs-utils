@@ -1,5 +1,7 @@
 import { defineConfig, mergeConfig } from 'vitest/config'
-import viteConfig from './vite.config'
+import { playwright } from '@vitest/browser-playwright'
+import { msw } from 'msw/vite'
+import viteConfig from './vite.config.mts'
 
 const viteConfigBase = viteConfig({
   mode: process.env.NODE_ENV || 'test',
@@ -9,11 +11,13 @@ const viteConfigBase = viteConfig({
 const config = mergeConfig(
   viteConfigBase,
   defineConfig({
+    // msw 3 serves its worker script through this plugin
+    plugins: [msw({ mode: 'worker-only' })],
     test: {
       retry: 3,
       browser: {
         enabled: true,
-        provider: 'playwright',
+        provider: playwright(),
         instances: [
           {
             browser: 'chromium',

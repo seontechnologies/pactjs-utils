@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@components': path.resolve(__dirname, './src/components'),
-        '@hooks': path.resolve(__dirname, './src/hooks'),
-        '@styles': path.resolve(__dirname, './src/styles'),
-        '@shared': path.resolve(__dirname, '../../sample-app/shared'),
+        '@components': path.resolve(import.meta.dirname, './src/components'),
+        '@hooks': path.resolve(import.meta.dirname, './src/hooks'),
+        '@styles': path.resolve(import.meta.dirname, './src/styles'),
+        '@shared': path.resolve(import.meta.dirname, '../../sample-app/shared'),
         '@vitest-utils': path.resolve(
-          __dirname,
+          import.meta.dirname,
           './src/test-utils/vitest-utils'
         )
       }
