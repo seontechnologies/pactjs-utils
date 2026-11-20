@@ -27,7 +27,8 @@ export default defineConfig({
     // lets process exit reap the Rust runtime between files. Files still run
     // sequentially (fileParallelism: false), so the shared pact JSON per
     // consumer+provider pair accumulates by merge across files.
+    // Vitest 4 isolates each file in its own fork by default (isolate: true).
     pool: 'forks',
-    poolOptions: { forks: { singleFork: false } }
+    isolate: true
   }
 })

@@ -34,5 +34,8 @@ docs/.vitepress/dist
 # Project specific
 !sample-app/*/.env
 sample-app/backend/test-events/movie-events.log
+sample-app/backend/dev.db
+sample-app/backend/dev.db-journal
 sample-app/backend/prisma/dev.db
+sample-app/backend/src/generated/
 sample-app/backend/prisma/dev.db-journal

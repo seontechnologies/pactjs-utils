@@ -33,7 +33,7 @@ const logWarn = (...args: unknown[]): void => {
 }
 
 // Using types instead of interfaces since they're not used outside this file
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 type StorageState = {
   cookies: Cookie[]
   origins: Origin[]

@@ -10,6 +10,7 @@
     "moduleResolution": "NodeNext",
     "noEmit": false,
     "outDir": "dist",
+    "rootDir": "./src",
     "target": "es2020"
   }
 }

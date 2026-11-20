@@ -1,5 +1,5 @@
 import type { AxiosResponse, AxiosError } from 'axios'
-import axios from 'axios'
+import { create } from 'axios'
 import type {
   ConflictMovieResponse,
   CreateMovieResponse,
@@ -21,7 +21,7 @@ export type ErrorResponse = {
 }
 // baseURL in axiosInstance: Axios uses a fixed base URL for all requests,
 // and Nock must intercept that exact URL for the tests to work
-const axiosInstance = axios.create({
+const axiosInstance = create({
   baseURL: API_URL, // this is really the API url where the requests are going to
   withCredentials: true // Required for sending cookies with cross-origin requests
 })

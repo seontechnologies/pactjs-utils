@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Prisma, PrismaClient } from '@prisma/client'
+import { Prisma } from './generated/prisma/client'
+import type { PrismaClient } from './generated/prisma/client'
 import { MovieAdapter } from './movie-adapter'
 import {
   generateMovieWithId,
@@ -50,9 +51,10 @@ function createPrismaMock() {
 
 type PrismaMock = ReturnType<typeof createPrismaMock>
 
-vi.mock('@prisma/client', async () => {
-  const actualPrisma =
-    await vi.importActual<typeof import('@prisma/client')>('@prisma/client') // eslint-disable-line @typescript-eslint/consistent-type-imports
+vi.mock('./generated/prisma/client', async () => {
+  const actualPrisma = await vi.importActual<
+    typeof import('./generated/prisma/client') // eslint-disable-line @typescript-eslint/consistent-type-imports
+  >('./generated/prisma/client')
 
   // Create a mock constructor for PrismaClientKnownRequestError that supports instanceof
   class MockPrismaClientKnownRequestError extends Error {
@@ -72,7 +74,6 @@ vi.mock('@prisma/client', async () => {
 
   return {
     ...actualPrisma,
-    PrismaClient: vi.fn(() => createPrismaMock()),
     Prisma: {
       ...actualPrisma.Prisma,
       PrismaClientKnownRequestError: MockPrismaClientKnownRequestError
@@ -87,7 +88,7 @@ describe('MovieAdapter', () => {
   const mockMovie: Movie = generateMovieWithId()
 
   beforeEach(() => {
-    prismaMock = new PrismaClient() as PrismaMock
+    prismaMock = createPrismaMock()
     movieAdapter = new MovieAdapter(prismaMock)
   })
 
@@ -230,7 +231,7 @@ describe('MovieAdapter', () => {
       const id = 999
 
       // Spy on the handleError method to ensure it's called
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const handleErrorSpy = vi.spyOn(movieAdapter as any, 'handleError')
 
       // Expect the method to throw the error
@@ -295,7 +296,7 @@ describe('MovieAdapter', () => {
       prismaMock.movie.create.mockRejectedValue(new Error(error))
 
       // Spy on the handleError method to ensure it's called
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const handleErrorSpy = vi.spyOn(movieAdapter as any, 'handleError')
 
       const result = await movieAdapter.addMovie(movieData)
@@ -366,7 +367,7 @@ describe('MovieAdapter', () => {
       prismaMock.movie.update.mockRejectedValue(error)
 
       // Spy on the handleError method to ensure it's called
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const handleErrorSpy = vi.spyOn(movieAdapter as any, 'handleError')
 
       const result = await movieAdapter.updateMovie(updateMovieData, id)

@@ -19,7 +19,9 @@ export default defineConfig({
     // See http/vitest.provider.config.mts for rationale.
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
+    // Vitest 4 replaced poolOptions.forks.singleFork with these two options.
+    maxWorkers: 1,
+    isolate: false,
     env: {
       DISABLE_KAFKA: 'true'
     }
